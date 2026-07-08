@@ -21,7 +21,7 @@ Clean Architecture dependency rule: Domain ← Application ← Infrastructure; H
 |-------|--------|
 | Phase 1 (M1–M6) | Complete |
 | Phase 2 P2-M1 (BC-10) | Complete |
-| Phase 2 P2-M2+ | Not started |
+| Phase 2 P2-M2 (BC-01 Slices 1–3) | Portfolio, Program, Project CRUD/archive |
 
 ## API surface
 
@@ -44,7 +44,7 @@ BC-10 details: [p2-m1-identity-access-core.md](../development/p2-m1-identity-acc
 
 - `IdentityDbContext` in Infrastructure
 - Migration: `InitialIdentity`
-- Dev: SQLite (`ConnectionStrings:IdentityDb`)
+- Dev: PostgreSQL (`ConnectionStrings:IdentityDb` → `aipm_dev`); SQLite in-memory for unit tests
 - Production PostgreSQL path: planned (ADR-TECH-001)
 
 ## BuildingBlocks roadmap (future)

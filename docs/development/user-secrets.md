@@ -19,10 +19,10 @@ The `UserSecretsId` is already set in the project file.
 ## Set secrets
 
 ```powershell
-dotnet user-secrets set "ConnectionStrings:PostgreSql" "Host=localhost;Port=5432;Database=aipm;Username=aipm;Password=dev"
+dotnet user-secrets set "ConnectionStrings:PostgreSql" "Host=localhost;Port=5432;Database=aipm;Username=postgres;Password=YOUR_PASSWORD"
 dotnet user-secrets set "ConnectionStrings:Redis" "localhost:6379"
 dotnet user-secrets set "ConnectionStrings:RabbitMq" "amqp://guest:guest@localhost:5672"
-dotnet user-secrets set "ConnectionStrings:IdentityDb" "Data Source=aipm.identity.db"
+dotnet user-secrets set "ConnectionStrings:IdentityDb" "Host=localhost;Port=5432;Database=aipm_dev;Username=postgres;Password=YOUR_PASSWORD"
 dotnet user-secrets set "Security:ApiKey" "dev-local-bc10-key"
 dotnet user-secrets set "OpenTelemetry:OtlpEndpoint" "http://localhost:4317"
 ```

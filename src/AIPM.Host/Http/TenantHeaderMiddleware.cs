@@ -63,12 +63,18 @@ public sealed class TenantHeaderMiddleware
 
     private static bool RequiresTenantScope(HttpRequest request)
     {
-        if (!request.Path.StartsWithSegments("/api/v1/identity", StringComparison.OrdinalIgnoreCase))
+        var isIdentityRoute = request.Path.StartsWithSegments("/api/v1/identity", StringComparison.OrdinalIgnoreCase);
+        var isPortfolioRoute = request.Path.StartsWithSegments("/api/v1/portfolio", StringComparison.OrdinalIgnoreCase)
+            || request.Path.StartsWithSegments("/api/v1/programs", StringComparison.OrdinalIgnoreCase)
+            || request.Path.StartsWithSegments("/api/v1/projects", StringComparison.OrdinalIgnoreCase);
+
+        if (!isIdentityRoute && !isPortfolioRoute)
         {
             return false;
         }
 
-        if (HttpMethods.IsPost(request.Method)
+        if (isIdentityRoute
+            && HttpMethods.IsPost(request.Method)
             && request.Path.Equals("/api/v1/identity/tenants", StringComparison.OrdinalIgnoreCase))
         {
             return false;

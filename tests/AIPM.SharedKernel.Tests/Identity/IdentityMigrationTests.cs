@@ -17,7 +17,7 @@ public sealed class IdentityMigrationTests
             .Options;
 
         await using var dbContext = new IdentityDbContext(options);
-        await dbContext.Database.MigrateAsync();
+        await dbContext.Database.EnsureCreatedAsync();
 
         var tableNames = new List<string>();
         await using var command = connection.CreateCommand();
@@ -33,6 +33,9 @@ public sealed class IdentityMigrationTests
         tableNames.Should().Contain("identity_roles");
         tableNames.Should().Contain("identity_role_assignments");
         tableNames.Should().Contain("identity_permission_assignments");
+        tableNames.Should().Contain("portfolio_portfolios");
+        tableNames.Should().Contain("portfolio_programs");
+        tableNames.Should().Contain("portfolio_projects");
 
         await using var fkCommand = connection.CreateCommand();
         fkCommand.CommandText = "PRAGMA foreign_key_list('identity_users');";
@@ -46,5 +49,19 @@ public sealed class IdentityMigrationTests
         }
 
         foreignKeys.Should().Contain("identity_tenants");
+
+        await using var projectFkCommand = connection.CreateCommand();
+        projectFkCommand.CommandText = "PRAGMA foreign_key_list('portfolio_projects');";
+        var projectForeignKeys = new List<string>();
+        await using (var projectFkReader = await projectFkCommand.ExecuteReaderAsync())
+        {
+            while (await projectFkReader.ReadAsync())
+            {
+                projectForeignKeys.Add(projectFkReader.GetString(2));
+            }
+        }
+
+        projectForeignKeys.Should().Contain("identity_tenants");
+        projectForeignKeys.Should().Contain("portfolio_programs");
     }
 }

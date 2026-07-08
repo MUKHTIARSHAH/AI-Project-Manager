@@ -3,6 +3,8 @@ using AIPM.Application.AI;
 using AIPM.Application.Identity.Commands;
 using AIPM.Application.Identity.Queries;
 using AIPM.Application.Platform;
+using AIPM.Application.Portfolio.Commands;
+using AIPM.Application.Portfolio.Queries;
 using AIPM.Application.Runtime;
 using AIPM.Application.Runtime.Agents;
 using AIPM.Application.Runtime.Contracts;
@@ -321,10 +323,45 @@ identity.MapPost("/roles/{roleId:guid}/permissions", async (IMediator mediator, 
     return Results.NoContent();
 });
 
+var portfolio = apiV1.MapGroup("/portfolio").RequireAuthorization("Bc10Admin");
+portfolio.MapGet(string.Empty, async (IMediator mediator, CancellationToken ct) =>
+    Results.Ok(await mediator.Send(new ListPortfoliosQuery(), ct)));
+portfolio.MapGet("/{portfolioId:guid}", async (IMediator mediator, Guid portfolioId, CancellationToken ct) =>
+    Results.Ok(await mediator.Send(new GetPortfolioQuery(portfolioId), ct)));
+portfolio.MapPost(string.Empty, async (IMediator mediator, CreatePortfolioCommand command, CancellationToken ct) =>
+    Results.Ok(await mediator.Send(command, ct)));
+
+var programs = apiV1.MapGroup("/programs").RequireAuthorization("Bc10Admin");
+programs.MapGet(string.Empty, async (IMediator mediator, CancellationToken ct) =>
+    Results.Ok(await mediator.Send(new ListProgramsQuery(), ct)));
+programs.MapGet("/{programId:guid}", async (IMediator mediator, Guid programId, CancellationToken ct) =>
+    Results.Ok(await mediator.Send(new GetProgramQuery(programId), ct)));
+programs.MapPost(string.Empty, async (IMediator mediator, CreateProgramCommand command, CancellationToken ct) =>
+    Results.Ok(await mediator.Send(command, ct)));
+
+var projects = apiV1.MapGroup("/projects").RequireAuthorization("Bc10Admin");
+projects.MapGet(string.Empty, async (IMediator mediator, CancellationToken ct) =>
+    Results.Ok(await mediator.Send(new ListProjectsQuery(), ct)));
+projects.MapGet("/{projectId:guid}", async (IMediator mediator, Guid projectId, CancellationToken ct) =>
+    Results.Ok(await mediator.Send(new GetProjectQuery(projectId), ct)));
+projects.MapPost(string.Empty, async (IMediator mediator, CreateProjectCommand command, CancellationToken ct) =>
+    Results.Ok(await mediator.Send(command, ct)));
+projects.MapPut("/{projectId:guid}", async (IMediator mediator, Guid projectId, UpdateProjectRequest request, CancellationToken ct) =>
+    Results.Ok(await mediator.Send(new UpdateProjectCommand(projectId, request.WorkspaceId, request.OwnerUserId, request.Name), ct)));
+projects.MapPost("/{projectId:guid}/archive", async (IMediator mediator, Guid projectId, CancellationToken ct) =>
+    Results.Ok(await mediator.Send(new ArchiveProjectCommand(projectId), ct)));
+
 using (var scope = app.Services.CreateScope())
 {
     var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
-    await identityDb.Database.MigrateAsync();
+    if (app.Environment.IsEnvironment("Testing") || !identityDb.Database.IsNpgsql())
+    {
+        await identityDb.Database.EnsureCreatedAsync();
+    }
+    else
+    {
+        await identityDb.Database.MigrateAsync();
+    }
 
     var pluginLoader = scope.ServiceProvider.GetRequiredService<IPluginLoader>();
     await pluginLoader.LoadAsync();
@@ -374,5 +411,8 @@ public partial class Program;
 
 /// <summary>Permission assignment request.</summary>
 public sealed record AssignPermissionRequest(string PermissionCode);
+
+/// <summary>Project update request body.</summary>
+public sealed record UpdateProjectRequest(Guid WorkspaceId, Guid OwnerUserId, string Name);
 
 

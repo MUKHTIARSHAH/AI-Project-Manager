@@ -1,4 +1,5 @@
 using AIPM.Application.Identity;
+using AIPM.Application.Portfolio;
 using AIPM.Application.Runtime.Events;
 using AIPM.Application.Runtime.Resilience;
 using AIPM.Application.Runtime.Workers;
@@ -13,6 +14,8 @@ using AIPM.Infrastructure.Messaging.Consumers;
 using AIPM.Infrastructure.Messaging.DeadLetter;
 using AIPM.Infrastructure.Messaging.Health;
 using AIPM.Infrastructure.Messaging.Idempotency;
+using AIPM.Infrastructure.Portfolio;
+using AIPM.Infrastructure.Portfolio.Repositories;
 using AIPM.Infrastructure.Resilience;
 using AIPM.Infrastructure.Workers;
 using AIPM.SharedKernel.Execution;
@@ -83,9 +86,13 @@ public static class DependencyInjection
 
         services.AddScoped<IMessageBus, MassTransitMessageBus>();
         services.AddScoped<IIdentityEventPublisher, IdentityEventPublisher>();
+        services.AddScoped<IPortfolioEventPublisher, PortfolioEventPublisher>();
         services.AddScoped<ITenantRepository, TenantRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRoleRepository, RoleRepository>();
+        services.AddScoped<IPortfolioRepository, PortfolioRepository>();
+        services.AddScoped<IProgramRepository, ProgramRepository>();
+        services.AddScoped<IProjectRepository, ProjectRepository>();
 
         var identityConnection = configuration.GetConnectionString("IdentityDb");
         if (string.IsNullOrWhiteSpace(identityConnection))
@@ -93,7 +100,8 @@ public static class DependencyInjection
             identityConnection = "Data Source=aipm.identity.db";
         }
 
-        services.AddDbContext<IdentityDbContext>(options => options.UseSqlite(identityConnection));
+        services.AddDbContext<IdentityDbContext>(options =>
+            IdentityDatabaseConfiguration.Configure(options, identityConnection));
 
         return services;
     }

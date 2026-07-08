@@ -1,4 +1,5 @@
 using AIPM.Infrastructure.Identity.Persistence.Models;
+using AIPM.Infrastructure.Portfolio.Persistence.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace AIPM.Infrastructure.Identity.Persistence;
@@ -23,6 +24,12 @@ public sealed class IdentityDbContext : DbContext
     public DbSet<RoleAssignmentRecord> RoleAssignments => Set<RoleAssignmentRecord>();
     /// <summary>Permission assignments table.</summary>
     public DbSet<PermissionAssignmentRecord> PermissionAssignments => Set<PermissionAssignmentRecord>();
+    /// <summary>Portfolios table (BC-01 AGG-002).</summary>
+    public DbSet<PortfolioRecord> Portfolios => Set<PortfolioRecord>();
+    /// <summary>Programs table (BC-01 AGG-003).</summary>
+    public DbSet<ProgramRecord> Programs => Set<ProgramRecord>();
+    /// <summary>Projects table (BC-01 AGG-004).</summary>
+    public DbSet<ProjectRecord> Projects => Set<ProjectRecord>();
 
     /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -81,6 +88,51 @@ public sealed class IdentityDbContext : DbContext
             entity.HasOne<RoleRecord>()
                 .WithMany()
                 .HasForeignKey(x => x.RoleId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<PortfolioRecord>(entity =>
+        {
+            entity.ToTable("portfolio_portfolios");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Name).HasMaxLength(200).IsRequired();
+            entity.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
+            entity.HasOne<TenantRecord>()
+                .WithMany()
+                .HasForeignKey(x => x.TenantId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<ProgramRecord>(entity =>
+        {
+            entity.ToTable("portfolio_programs");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Name).HasMaxLength(200).IsRequired();
+            entity.HasIndex(x => new { x.TenantId, x.PortfolioId, x.Name }).IsUnique();
+            entity.HasOne<TenantRecord>()
+                .WithMany()
+                .HasForeignKey(x => x.TenantId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<PortfolioRecord>()
+                .WithMany()
+                .HasForeignKey(x => x.PortfolioId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<ProjectRecord>(entity =>
+        {
+            entity.ToTable("portfolio_projects");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Name).HasMaxLength(200).IsRequired();
+            entity.Property(x => x.Status).HasMaxLength(32).IsRequired();
+            entity.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
+            entity.HasOne<TenantRecord>()
+                .WithMany()
+                .HasForeignKey(x => x.TenantId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<ProgramRecord>()
+                .WithMany()
+                .HasForeignKey(x => x.ProgramId)
                 .OnDelete(DeleteBehavior.Restrict);
         });
     }
