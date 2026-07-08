@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>AIPM.SharedKernel.Tests</RootNamespace>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="xunit" />
+    <PackageReference Include="xunit.runner.visualstudio" />
+    <PackageReference Include="FluentAssertions" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Sqlite" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+    <PackageReference Include="Microsoft.Extensions.Logging" />
+    <PackageReference Include="coverlet.collector" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\..\src\AIPM.Application\AIPM.Application.csproj" />
+    <ProjectReference Include="..\..\src\AIPM.Infrastructure\AIPM.Infrastructure.csproj" />
+    <ProjectReference Include="..\..\src\AIPM.Plugins\AIPM.Plugins.csproj" />
+    <ProjectReference Include="..\..\src\AIPM.Workflow\AIPM.Workflow.csproj" />
+    <ProjectReference Include="..\..\src\AIPM.SharedKernel\AIPM.SharedKernel.csproj" />
+  </ItemGroup>
+</Project>

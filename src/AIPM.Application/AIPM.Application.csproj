@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>AIPM.Application</RootNamespace>
+    <AssemblyName>AIPM.Application</AssemblyName>
+    <Description>Application layer — MediatR, use cases (platform only in Phase 1).</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="MediatR" />
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+    <PackageReference Include="Microsoft.Extensions.Logging.Abstractions" />
+  </ItemGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\AIPM.Domain\AIPM.Domain.csproj" />
+    <ProjectReference Include="..\AIPM.SharedKernel\AIPM.SharedKernel.csproj" />
+  </ItemGroup>
+</Project>

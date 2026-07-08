@@ -1,0 +1,13 @@
+{
+  "Deployment": {
+    "Profile": "saas",
+    "Capabilities": {
+      "PublicEgress": true,
+      "SharedAgentPools": true,
+      "CloudLlmRoutes": true,
+      "DedicatedCompute": false,
+      "CustomerManagedKeys": false,
+      "StoreAndForwardUpdates": false
+    }
+  }
+}

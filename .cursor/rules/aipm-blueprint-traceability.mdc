@@ -1,0 +1,66 @@
+---
+description: AIPM blueprint traceability rule for documents 05-25. No new concepts without CAP/CON/SRS/PC/ADR trace.
+alwaysApply: true
+---
+
+# AIPM Blueprint Traceability (Prompt 05+)
+
+When authoring or editing files under `Engineering-Blueprint/05-Enterprise-Information-Model/` through `Engineering-Blueprint/25-Templates/`:
+
+## Permanent rule (ADR-GOV-003)
+
+**No new concept may be introduced unless traceable to an approved capability (CAP-###), information concept (CON-###, after EIM), requirement (FR/NFR/SC/CON), constitutional article (PC-AIPM-001), or accepted ADR.**
+
+If a genuinely new concept is required:
+1. Stop and draft a new ADR in `02-Architecture/ADR/`
+2. Get it accepted and indexed in `00-Governance/ADR-Index.md`
+3. Only then add the concept to the blueprint document
+
+## Domain stability (ADR-GOV-007)
+
+After DM-AIPM-001 approval: no new aggregates, identity changes, or CMD/EVT without ADR. All `07+` docs derive from Domain Model.
+
+## Canonical concept rule (ADR-GOV-006)
+
+Every `CON-###` has exactly one canonical definition and one canonical owner. No duplicate concepts or undocumented overlap.
+
+## Layer order (ADR-GOV-005)
+
+```
+04 BCM → 05 EIM → 06 DDD → 07 Events → 08 State Machines → 09+ Technology
+```
+
+## Do not modify locked documents
+
+SRS, SAD, Constitution, BCM, EIM, DM, ADR-TECH-001, and locked ADRs are immutable unless user explicitly requests amendment via new ADR.
+
+## ID conventions
+
+- Information layer: `CON-###`, `REL-###`, `IDL-###`
+- Application layer: `BC-##`, `AGG-###`, `ENT-###`, `VO-###`, `CMD-###`, `EVT-###`, `POL-###`, `SVC-###`, `VAL-###`, `DDL-###`
+
+## Mandatory linkages (ADR-GOV-004)
+
+- Every state transition in `08-State-Machines/` must reference `CMD-###` and/or `EVT-###`
+- Every `CMD-###` that mutates state must declare postcondition transitions
+- Every DDD aggregate/entity must trace to `CON-###` from EIM
+
+## Quality gates
+
+Before APPROVED: pass all applicable gates in `21-Quality/Document-Quality-Gates.md`.
+
+## Authoring specs
+
+- Methodology: `00-Governance/Blueprint-Authoring-Methodology.md`
+- Prompt 05 (EIM): `05-Enterprise-Information-Model/PROMPT-05-SPECIFICATION.md`
+- Prompt 06 (DDD): `06-Domain-Model/PROMPT-06-SPECIFICATION.md`
+
+## Technology stack (ADR-TECH-001 — LOCKED)
+
+- Backend: C# / .NET 9 / ASP.NET Core 9
+- Database: PostgreSQL 16+; cache: Redis; vectors: pgvector
+- Messaging: RabbitMQ → Kafka migration path
+- Frontend: Next.js (TypeScript)
+- Cloud primary: Azure
+
+Changes require ADR-TECH-002+. Supersedes ADR-008 runtime choices (ADR-008 file unchanged).

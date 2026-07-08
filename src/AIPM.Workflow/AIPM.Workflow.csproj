@@ -1,0 +1,14 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>AIPM.Workflow</RootNamespace>
+    <AssemblyName>AIPM.Workflow</AssemblyName>
+    <Description>Workflow FSM skeleton — no business workflows in Phase 1.</Description>
+  </PropertyGroup>
+  <ItemGroup>
+    <ProjectReference Include="..\AIPM.Application\AIPM.Application.csproj" />
+    <ProjectReference Include="..\AIPM.SharedKernel\AIPM.SharedKernel.csproj" />
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="Microsoft.Extensions.DependencyInjection.Abstractions" />
+  </ItemGroup>
+</Project>

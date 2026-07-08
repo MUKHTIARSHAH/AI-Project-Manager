@@ -1,0 +1,366 @@
+using AIPM.Application;
+using AIPM.Application.AI;
+using AIPM.Application.Identity.Commands;
+using AIPM.Application.Identity.Queries;
+using AIPM.Application.Platform;
+using AIPM.Application.Runtime;
+using AIPM.Application.Runtime.Agents;
+using AIPM.Application.Runtime.Contracts;
+using AIPM.Application.Runtime.Plugins;
+using AIPM.Host.Http;
+using AIPM.Host.Runtime;
+using AIPM.Host.Security;
+using AIPM.Infrastructure;
+using AIPM.Infrastructure.Configuration;
+using AIPM.Infrastructure.Identity.Persistence;
+using AIPM.Infrastructure.Messaging;
+using AIPM.Infrastructure.Messaging.Health;
+using AIPM.Plugins;
+using AIPM.Workflow;
+using MediatR;
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Options;
+using OpenTelemetry.Metrics;
+using OpenTelemetry.Resources;
+using OpenTelemetry.Trace;
+using Serilog;
+
+
+
+var builder = WebApplication.CreateBuilder(args);
+
+
+
+builder.Configuration.AddDeploymentProfile(builder.Environment, builder.Environment.ContentRootPath);
+
+
+
+Log.Logger = new LoggerConfiguration()
+
+    .ReadFrom.Configuration(builder.Configuration)
+
+    .Enrich.FromLogContext()
+
+    .Enrich.WithEnvironmentName()
+
+    .Enrich.WithThreadId()
+
+    .WriteTo.Console()
+
+    .CreateLogger();
+
+
+
+builder.Host.UseSerilog();
+
+
+
+builder.Services.AddProblemDetails();
+
+builder.Services.AddExceptionHandler<GlobalExceptionHandler>();
+
+
+
+builder.Services.AddApplication();
+
+builder.Services.AddInfrastructure(builder.Configuration);
+builder.Services
+    .AddAuthentication(ApiKeyAuthenticationHandler.SchemeName)
+    .AddScheme<AuthenticationSchemeOptions, ApiKeyAuthenticationHandler>(ApiKeyAuthenticationHandler.SchemeName, _ => { });
+builder.Services.AddAuthorization(options =>
+{
+    options.AddPolicy("Bc10Admin", policy =>
+        policy.RequireAuthenticatedUser().RequireRole("PlatformAdmin"));
+});
+
+builder.Services.AddWorkflow();
+
+
+
+var pluginsPath = Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, "..", "..", "plugins"));
+
+builder.Services.AddPlugins(options => options.ScanPaths = [pluginsPath]);
+
+
+
+builder.Services.AddHostedService<PlatformRuntimeHostedService>();
+
+
+
+var otelOptions = builder.Configuration.GetSection(OpenTelemetryOptions.SectionName).Get<OpenTelemetryOptions>()
+
+    ?? new OpenTelemetryOptions();
+
+builder.Services.AddOpenTelemetry()
+
+    .ConfigureResource(resource => resource.AddService(otelOptions.ServiceName))
+
+    .WithTracing(tracing =>
+
+    {
+
+        tracing.AddAspNetCoreInstrumentation().AddHttpClientInstrumentation();
+
+        if (!string.IsNullOrWhiteSpace(otelOptions.OtlpEndpoint))
+
+        {
+
+            tracing.AddOtlpExporter();
+
+        }
+
+    })
+
+    .WithMetrics(metrics =>
+
+    {
+
+        metrics.AddAspNetCoreInstrumentation().AddHttpClientInstrumentation();
+
+        if (!string.IsNullOrWhiteSpace(otelOptions.OtlpEndpoint))
+
+        {
+
+            metrics.AddOtlpExporter();
+
+        }
+
+    });
+
+
+
+var healthBuilder = builder.Services.AddHealthChecks()
+
+    .AddCheck("self", () => Microsoft.Extensions.Diagnostics.HealthChecks.HealthCheckResult.Healthy("host alive"));
+
+healthBuilder.AddCheck<MessagingPipelineHealthCheck>("messaging-pipeline");
+
+
+
+static bool IsRealConnection(string? value) =>
+
+    !string.IsNullOrWhiteSpace(value)
+
+    && !value.Equals("inmemory", StringComparison.OrdinalIgnoreCase);
+
+
+
+var postgresConnection = builder.Configuration.GetConnectionString("PostgreSql");
+
+if (IsRealConnection(postgresConnection))
+
+{
+
+    healthBuilder.AddNpgSql(postgresConnection!, name: "postgresql");
+
+}
+
+
+
+var redisConnection = builder.Configuration.GetConnectionString("Redis");
+
+if (IsRealConnection(redisConnection))
+
+{
+
+    healthBuilder.AddRedis(redisConnection!, name: "redis");
+
+}
+
+
+
+var rabbitConnection = builder.Configuration.GetConnectionString("RabbitMq");
+
+if (IsRealConnection(rabbitConnection))
+
+{
+
+    healthBuilder.AddRabbitMQ(rabbitConnection!, name: "rabbitmq");
+
+}
+
+
+
+var app = builder.Build();
+
+
+
+app.UseExceptionHandler();
+app.UseAuthentication();
+app.UseAuthorization();
+
+
+
+app.MapGet("/health", () => Results.Text("healthy")).AllowAnonymous();
+
+
+
+app.MapHealthChecks("/ready").AllowAnonymous();
+
+
+
+var apiV1 = app.MapGroup("/api/v1");
+
+
+
+apiV1.MapGet("/platform/ping", async (IMediator mediator, CancellationToken ct) =>
+
+{
+
+    var response = await mediator.Send(new PlatformPingCommand(), ct);
+
+    return Results.Ok(response);
+
+});
+
+
+
+apiV1.MapGet("/platform/deployment", (IOptions<DeploymentOptions> deployment) =>
+
+    Results.Ok(new
+
+    {
+
+        profile = deployment.Value.Profile,
+
+        capabilities = deployment.Value.Capabilities
+
+    }));
+
+apiV1.MapGet("/ai/providers", (IAiProviderRegistry registry) =>
+    Results.Ok(new
+    {
+        providers = registry.ListProviders(),
+        mode = "abstraction-only"
+    }));
+
+
+
+apiV1.MapGet("/agents", (IAgentRegistry registry) => Results.Ok(registry.List()));
+
+apiV1.MapGet("/agent-types", async (
+    IPluginLoader pluginLoader,
+    IAgentRegistry registry,
+    CancellationToken ct) =>
+{
+    var load = await pluginLoader.LoadAsync(ct);
+    if (load.Errors.Count > 0)
+    {
+        throw new AIPM.SharedKernel.Errors.InfrastructureError(string.Join("; ", load.Errors));
+    }
+
+    var contracts = registry.List()
+        .Select(AgentTypeContractMapper.ToContract)
+        .ToList();
+
+    return Results.Ok(new AgentTypeCatalogResponse(AgentSdkContract.SchemaVersion, contracts));
+});
+
+
+
+apiV1.MapGet("/agents/{capability}", (string capability, IAgentRegistry registry) =>
+
+{
+
+    var descriptor = registry.ResolveByCapability(capability)
+
+        ?? throw new AIPM.SharedKernel.Errors.NotFoundError($"No agent registered for capability '{capability}'.");
+
+    return Results.Ok(descriptor);
+
+});
+
+
+
+apiV1.MapPost("/runtime/demo/echo", async (PlatformRuntimeOrchestrator orchestrator, CancellationToken ct) =>
+
+{
+
+    var result = await orchestrator.RunEchoAgentDemoAsync(ct);
+
+    return Results.Ok(result);
+
+});
+
+var identity = apiV1.MapGroup("/identity").RequireAuthorization("Bc10Admin");
+identity.MapGet("/tenants", async (IMediator mediator, CancellationToken ct) =>
+    Results.Ok(await mediator.Send(new ListTenantsQuery(), ct)));
+identity.MapPost("/tenants", async (IMediator mediator, ProvisionTenantCommand command, CancellationToken ct) =>
+    Results.Ok(await mediator.Send(command, ct)));
+identity.MapPost("/tenants/{tenantId:guid}/suspend", async (IMediator mediator, Guid tenantId, CancellationToken ct) =>
+{
+    await mediator.Send(new SuspendTenantCommand(tenantId), ct);
+    return Results.NoContent();
+});
+identity.MapGet("/users", async (IMediator mediator, CancellationToken ct) =>
+    Results.Ok(await mediator.Send(new ListUsersQuery(), ct)));
+identity.MapPost("/users", async (IMediator mediator, CreateUserCommand command, CancellationToken ct) =>
+    Results.Ok(await mediator.Send(command, ct)));
+identity.MapGet("/roles", async (IMediator mediator, CancellationToken ct) =>
+    Results.Ok(await mediator.Send(new ListRolesQuery(), ct)));
+identity.MapPost("/roles", async (IMediator mediator, CreateRoleCommand command, CancellationToken ct) =>
+    Results.Ok(await mediator.Send(command, ct)));
+identity.MapPost("/users/{userId:guid}/roles/{roleId:guid}", async (IMediator mediator, Guid userId, Guid roleId, CancellationToken ct) =>
+{
+    await mediator.Send(new AssignRoleCommand(userId, roleId), ct);
+    return Results.NoContent();
+});
+identity.MapPost("/roles/{roleId:guid}/permissions", async (IMediator mediator, Guid roleId, AssignPermissionRequest request, CancellationToken ct) =>
+{
+    await mediator.Send(new AssignPermissionCommand(roleId, request.PermissionCode), ct);
+    return Results.NoContent();
+});
+
+using (var scope = app.Services.CreateScope())
+{
+    var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+    await identityDb.Database.MigrateAsync();
+}
+
+
+
+if (!app.Environment.IsEnvironment("Testing"))
+
+{
+
+    using var scope = app.Services.CreateScope();
+
+    var bus = scope.ServiceProvider.GetRequiredService<IMessageBus>();
+
+    var correlationId = Guid.NewGuid();
+    var started = new PlatformStartedEvent
+    {
+        CorrelationId = correlationId,
+        CausationId = correlationId,
+        ServiceName = "aipm-host"
+    };
+    await bus.PublishAsync(started);
+    await bus.PublishAsync(new PlatformHealthEvent
+    {
+        CorrelationId = correlationId,
+        CausationId = started.MessageId,
+        ServiceName = "aipm-host",
+        Status = "ready"
+    });
+
+}
+
+
+
+Log.Information("AIPM host starting — Phase 1 platform skeleton");
+
+
+
+app.Run();
+
+
+
+/// <summary>Entry point for integration tests.</summary>
+
+public partial class Program;
+
+/// <summary>Permission assignment request.</summary>
+public sealed record AssignPermissionRequest(string PermissionCode);
+
+
