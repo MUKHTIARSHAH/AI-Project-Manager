@@ -1,5 +1,7 @@
 # AI Project Manager (AIPM) — Control Plane
 
+Enterprise-grade AI Project Management Platform built with ASP.NET Core, Clean Architecture, Domain-Driven Design (DDD), CQRS, and Multi-Agent AI architecture.
+
 Enterprise AI project management control plane implementing the approved Engineering Blueprint (ADR-TECH-001: .NET 9, PostgreSQL, RabbitMQ, Redis).
 
 ## Current status
@@ -67,3 +69,7 @@ See [docs/development/milestone-quality-gate.md](docs/development/milestone-qual
 ## Changelog
 
 [CHANGELOG.md](CHANGELOG.md)
+
+## License
+
+Apache-2.0 — see [LICENSE](LICENSE).

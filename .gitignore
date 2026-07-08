@@ -10,6 +10,11 @@ coverage/
 
 # IDE
 .idea/
+.vscode/*
+!.vscode/settings.json
+!.vscode/tasks.json
+!.vscode/launch.json
+!.vscode/extensions.json
 *.swp
 
 # OS
@@ -24,3 +29,16 @@ appsettings.*.local.json
 *.db
 *.db-shm
 *.db-wal
+
+# Node
+node_modules/
+
+# Build artifacts
+[Dd]ebug/
+[Rr]elease/
+[Bb]in/
+[Oo]bj/
+[Ll]og/
+[Ll]ogs/
+artifacts/
+*.binlog
