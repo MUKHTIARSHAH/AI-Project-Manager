@@ -19,7 +19,7 @@ public sealed record RuntimeExecutionContext(
         CancellationToken cancellationToken = default)
         => new(
             CorrelationId.New(),
-            tenantId ?? TenantId.New(),
+            tenantId ?? new TenantId(Guid.Empty),
             user ?? UserContext.System,
             new RequestMetadata("platform", DateTimeOffset.UtcNow),
             cancellationToken);

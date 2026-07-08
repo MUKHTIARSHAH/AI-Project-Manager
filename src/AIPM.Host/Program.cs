@@ -80,7 +80,14 @@ builder.Services.AddWorkflow();
 
 var pluginsPath = Path.GetFullPath(Path.Combine(builder.Environment.ContentRootPath, "..", "..", "plugins"));
 
-builder.Services.AddPlugins(options => options.ScanPaths = [pluginsPath]);
+var platformOptions = builder.Configuration.GetSection(PlatformOptions.SectionName).Get<PlatformOptions>()
+    ?? new PlatformOptions();
+
+builder.Services.AddPlugins(options =>
+{
+    options.ScanPaths = [pluginsPath];
+    options.AllowUnsignedPlugins = platformOptions.AllowUnsignedPluginsDev;
+});
 
 
 
@@ -187,6 +194,7 @@ var app = builder.Build();
 
 
 app.UseExceptionHandler();
+app.UseMiddleware<TenantHeaderMiddleware>();
 app.UseAuthentication();
 app.UseAuthorization();
 
@@ -239,17 +247,8 @@ apiV1.MapGet("/ai/providers", (IAiProviderRegistry registry) =>
 
 apiV1.MapGet("/agents", (IAgentRegistry registry) => Results.Ok(registry.List()));
 
-apiV1.MapGet("/agent-types", async (
-    IPluginLoader pluginLoader,
-    IAgentRegistry registry,
-    CancellationToken ct) =>
+apiV1.MapGet("/agent-types", (IAgentRegistry registry) =>
 {
-    var load = await pluginLoader.LoadAsync(ct);
-    if (load.Errors.Count > 0)
-    {
-        throw new AIPM.SharedKernel.Errors.InfrastructureError(string.Join("; ", load.Errors));
-    }
-
     var contracts = registry.List()
         .Select(AgentTypeContractMapper.ToContract)
         .ToList();
@@ -273,7 +272,7 @@ apiV1.MapGet("/agents/{capability}", (string capability, IAgentRegistry registry
 
 
 
-apiV1.MapPost("/runtime/demo/echo", async (PlatformRuntimeOrchestrator orchestrator, CancellationToken ct) =>
+var demoEndpoint = apiV1.MapPost("/runtime/demo/echo", async (PlatformRuntimeOrchestrator orchestrator, CancellationToken ct) =>
 
 {
 
@@ -282,6 +281,16 @@ apiV1.MapPost("/runtime/demo/echo", async (PlatformRuntimeOrchestrator orchestra
     return Results.Ok(result);
 
 });
+
+if (!app.Environment.IsDevelopment())
+
+{
+
+    demoEndpoint.RequireAuthorization("Bc10Admin");
+
+}
+
+
 
 var identity = apiV1.MapGroup("/identity").RequireAuthorization("Bc10Admin");
 identity.MapGet("/tenants", async (IMediator mediator, CancellationToken ct) =>
@@ -316,6 +325,9 @@ using (var scope = app.Services.CreateScope())
 {
     var identityDb = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
     await identityDb.Database.MigrateAsync();
+
+    var pluginLoader = scope.ServiceProvider.GetRequiredService<IPluginLoader>();
+    await pluginLoader.LoadAsync();
 }
 
 

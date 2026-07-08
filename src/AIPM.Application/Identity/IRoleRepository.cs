@@ -17,6 +17,9 @@ public interface IRoleRepository
     /// <summary>Lists roles.</summary>
     Task<IReadOnlyList<Role>> ListAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>Lists roles for a tenant.</summary>
+    Task<IReadOnlyList<Role>> ListByTenantAsync(Guid tenantId, CancellationToken cancellationToken = default);
+
     /// <summary>Saves pending changes.</summary>
     Task SaveChangesAsync(CancellationToken cancellationToken = default);
 }

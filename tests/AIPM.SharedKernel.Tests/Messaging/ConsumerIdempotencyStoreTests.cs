@@ -17,5 +17,6 @@ public sealed class ConsumerIdempotencyStoreTests
 
         store.TryMarkProcessed(id).Should().BeTrue();
         store.TryMarkProcessed(id).Should().BeFalse();
+        store.HasBeenProcessed(id).Should().BeTrue();
     }
 }

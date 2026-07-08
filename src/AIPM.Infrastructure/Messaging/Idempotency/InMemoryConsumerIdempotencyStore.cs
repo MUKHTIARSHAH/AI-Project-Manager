@@ -10,6 +10,11 @@ public sealed class InMemoryConsumerIdempotencyStore : IConsumerIdempotencyStore
     private readonly ConcurrentDictionary<Guid, byte> _processed = new();
 
     /// <inheritdoc />
-    public bool TryMarkProcessed(Guid messageId)
-        => _processed.TryAdd(messageId, 0);
+    public bool HasBeenProcessed(Guid messageId) => _processed.ContainsKey(messageId);
+
+    /// <inheritdoc />
+    public void MarkProcessed(Guid messageId) => _processed.TryAdd(messageId, 0);
+
+    /// <inheritdoc />
+    public bool TryMarkProcessed(Guid messageId) => _processed.TryAdd(messageId, 0);
 }

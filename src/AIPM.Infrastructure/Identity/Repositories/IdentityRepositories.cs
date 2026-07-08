@@ -44,6 +44,15 @@ public sealed class TenantRepository : ITenantRepository
             .ToList();
 
     /// <inheritdoc />
+    public async Task<IReadOnlyList<Tenant>> ListByTenantAsync(Guid tenantId, CancellationToken cancellationToken = default)
+    {
+        var record = await _dbContext.Tenants.AsNoTracking().FirstOrDefaultAsync(x => x.Id == tenantId, cancellationToken);
+        return record is null
+            ? []
+            : [Tenant.Rehydrate(record.Id, record.Name, Enum.Parse<TenantStatus>(record.Status, true))];
+    }
+
+    /// <inheritdoc />
     public async Task UpdateAsync(Tenant tenant, CancellationToken cancellationToken = default)
     {
         var record = await _dbContext.Tenants.FirstOrDefaultAsync(x => x.Id == tenant.Id, cancellationToken)
@@ -107,9 +116,25 @@ public sealed class UserRepository : IUserRepository
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<User>> ListAsync(CancellationToken cancellationToken = default)
+        => await ListByTenantInternalAsync(null, cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<User>> ListByTenantAsync(Guid tenantId, CancellationToken cancellationToken = default)
+        => await ListByTenantInternalAsync(tenantId, cancellationToken);
+
+    private async Task<IReadOnlyList<User>> ListByTenantInternalAsync(Guid? tenantId, CancellationToken cancellationToken)
     {
-        var users = await _dbContext.Users.AsNoTracking().ToListAsync(cancellationToken);
-        var assignments = await _dbContext.RoleAssignments.AsNoTracking().ToListAsync(cancellationToken);
+        var userQuery = _dbContext.Users.AsNoTracking();
+        if (tenantId.HasValue)
+        {
+            userQuery = userQuery.Where(x => x.TenantId == tenantId.Value);
+        }
+
+        var users = await userQuery.ToListAsync(cancellationToken);
+        var userIds = users.Select(x => x.Id).ToList();
+        var assignments = await _dbContext.RoleAssignments.AsNoTracking()
+            .Where(x => userIds.Contains(x.UserId))
+            .ToListAsync(cancellationToken);
         return users.Select(x =>
             User.Rehydrate(
                 x.Id,
@@ -195,9 +220,25 @@ public sealed class RoleRepository : IRoleRepository
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<Role>> ListAsync(CancellationToken cancellationToken = default)
+        => await ListByTenantInternalAsync(null, cancellationToken);
+
+    /// <inheritdoc />
+    public async Task<IReadOnlyList<Role>> ListByTenantAsync(Guid tenantId, CancellationToken cancellationToken = default)
+        => await ListByTenantInternalAsync(tenantId, cancellationToken);
+
+    private async Task<IReadOnlyList<Role>> ListByTenantInternalAsync(Guid? tenantId, CancellationToken cancellationToken)
     {
-        var roles = await _dbContext.Roles.AsNoTracking().ToListAsync(cancellationToken);
-        var permissions = await _dbContext.PermissionAssignments.AsNoTracking().ToListAsync(cancellationToken);
+        var roleQuery = _dbContext.Roles.AsNoTracking();
+        if (tenantId.HasValue)
+        {
+            roleQuery = roleQuery.Where(x => x.TenantId == tenantId.Value);
+        }
+
+        var roles = await roleQuery.ToListAsync(cancellationToken);
+        var roleIds = roles.Select(x => x.Id).ToList();
+        var permissions = await _dbContext.PermissionAssignments.AsNoTracking()
+            .Where(x => roleIds.Contains(x.RoleId))
+            .ToListAsync(cancellationToken);
 
         return roles.Select(x =>
             Role.Rehydrate(

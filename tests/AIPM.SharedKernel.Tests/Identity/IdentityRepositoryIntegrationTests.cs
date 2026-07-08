@@ -64,4 +64,24 @@ public sealed class IdentityRepositoryIntegrationTests : IAsyncLifetime
         var loaded = await userRepository.FindAsync(user.Id);
         loaded!.RoleAssignments.Should().ContainSingle(x => x.RoleId == role.Id);
     }
+
+    [Fact]
+    public async Task UserRepository_ListByTenantAsync_FiltersUsers()
+    {
+        var tenantRepository = new TenantRepository(_dbContext);
+        var userRepository = new UserRepository(_dbContext);
+        var tenantA = Tenant.Provision("Tenant-A");
+        var tenantB = Tenant.Provision("Tenant-B");
+        var userA = User.Create(tenantA.Id, "a@tenant-a.test");
+        var userB = User.Create(tenantB.Id, "b@tenant-b.test");
+
+        await tenantRepository.AddAsync(tenantA);
+        await tenantRepository.AddAsync(tenantB);
+        await userRepository.AddAsync(userA);
+        await userRepository.AddAsync(userB);
+        await _dbContext.SaveChangesAsync();
+
+        var usersForA = await userRepository.ListByTenantAsync(tenantA.Id);
+        usersForA.Should().ContainSingle(x => x.Email == "a@tenant-a.test");
+    }
 }

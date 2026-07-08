@@ -1,5 +1,6 @@
 using System.Net;
 using System.Net.Http.Json;
+using System.Text.Json;
 using FluentAssertions;
 
 namespace AIPM.Host.Tests;
@@ -73,5 +74,74 @@ public sealed class ApiV1EndpointTests : IClassFixture<HostTestWebApplicationFac
         var listBody = await listResponse.Content.ReadAsStringAsync();
         listResponse.StatusCode.Should().Be(HttpStatusCode.OK, because: listBody);
         listBody.Should().Contain("Acme");
+    }
+
+    [Fact]
+    public async Task IdentityEndpoints_RejectInvalidApiKey()
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Get, "/api/v1/identity/tenants");
+        request.Headers.Add("X-Api-Key", "invalid-key");
+        var response = await _client.SendAsync(request);
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task SuspendTenant_ReturnsNoContent()
+    {
+        var tenantId = await ProvisionTenantAsync("Suspend-Me");
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/identity/tenants/{tenantId}/suspend");
+        request.Headers.Add("X-Api-Key", "test-bc10-key");
+        request.Headers.Add("X-Tenant-Id", tenantId.ToString());
+        var response = await _client.SendAsync(request);
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+    }
+
+    [Fact]
+    public async Task SuspendTenant_WithoutTenantHeader_AllowsPlatformAdmin()
+    {
+        var tenantId = await ProvisionTenantAsync("Platform-Suspend");
+
+        using var request = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/identity/tenants/{tenantId}/suspend");
+        request.Headers.Add("X-Api-Key", "test-bc10-key");
+        var response = await _client.SendAsync(request);
+        response.StatusCode.Should().Be(HttpStatusCode.NoContent);
+    }
+
+    [Fact]
+    public async Task CreateUserAndRole_Works_WithTenantHeader()
+    {
+        var tenantId = await ProvisionTenantAsync("Role-Tenant");
+
+        using var roleRequest = new HttpRequestMessage(HttpMethod.Post, "/api/v1/identity/roles")
+        {
+            Content = JsonContent.Create(new { tenantId, name = "Admin" })
+        };
+        roleRequest.Headers.Add("X-Api-Key", "test-bc10-key");
+        roleRequest.Headers.Add("X-Tenant-Id", tenantId.ToString());
+        var roleResponse = await _client.SendAsync(roleRequest);
+        roleResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+
+        using var userRequest = new HttpRequestMessage(HttpMethod.Post, "/api/v1/identity/users")
+        {
+            Content = JsonContent.Create(new { tenantId, email = "admin@role-tenant.test" })
+        };
+        userRequest.Headers.Add("X-Api-Key", "test-bc10-key");
+        userRequest.Headers.Add("X-Tenant-Id", tenantId.ToString());
+        var userResponse = await _client.SendAsync(userRequest);
+        userResponse.StatusCode.Should().Be(HttpStatusCode.OK);
+    }
+
+    private async Task<Guid> ProvisionTenantAsync(string name)
+    {
+        using var request = new HttpRequestMessage(HttpMethod.Post, "/api/v1/identity/tenants")
+        {
+            Content = JsonContent.Create(new { name })
+        };
+        request.Headers.Add("X-Api-Key", "test-bc10-key");
+        var response = await _client.SendAsync(request);
+        response.StatusCode.Should().Be(HttpStatusCode.OK);
+        var document = await response.Content.ReadFromJsonAsync<JsonElement>();
+        return document.GetProperty("id").GetGuid();
     }
 }

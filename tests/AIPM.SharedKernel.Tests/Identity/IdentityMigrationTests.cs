@@ -33,5 +33,18 @@ public sealed class IdentityMigrationTests
         tableNames.Should().Contain("identity_roles");
         tableNames.Should().Contain("identity_role_assignments");
         tableNames.Should().Contain("identity_permission_assignments");
+
+        await using var fkCommand = connection.CreateCommand();
+        fkCommand.CommandText = "PRAGMA foreign_key_list('identity_users');";
+        var foreignKeys = new List<string>();
+        await using (var fkReader = await fkCommand.ExecuteReaderAsync())
+        {
+            while (await fkReader.ReadAsync())
+            {
+                foreignKeys.Add(fkReader.GetString(2));
+            }
+        }
+
+        foreignKeys.Should().Contain("identity_tenants");
     }
 }

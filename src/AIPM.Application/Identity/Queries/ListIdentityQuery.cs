@@ -20,30 +20,48 @@ public sealed class ListIdentityQueryHandler :
     private readonly ITenantRepository _tenantRepository;
     private readonly IUserRepository _userRepository;
     private readonly IRoleRepository _roleRepository;
+    private readonly ITenantScope _tenantScope;
 
     /// <summary>Initializes handler.</summary>
-    public ListIdentityQueryHandler(ITenantRepository tenantRepository, IUserRepository userRepository, IRoleRepository roleRepository)
+    public ListIdentityQueryHandler(
+        ITenantRepository tenantRepository,
+        IUserRepository userRepository,
+        IRoleRepository roleRepository,
+        ITenantScope tenantScope)
     {
         _tenantRepository = tenantRepository;
         _userRepository = userRepository;
         _roleRepository = roleRepository;
+        _tenantScope = tenantScope;
     }
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<TenantDto>> Handle(ListTenantsQuery request, CancellationToken cancellationToken)
-        => (await _tenantRepository.ListAsync(cancellationToken))
+    {
+        var tenants = _tenantScope.CurrentTenantId is { } tenantId
+            ? await _tenantRepository.ListByTenantAsync(tenantId.Value, cancellationToken)
+            : await _tenantRepository.ListAsync(cancellationToken);
+
+        return tenants
             .Select(x => new TenantDto(x.Id, x.Name, x.Status.ToString()))
             .ToList();
+    }
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<UserDto>> Handle(ListUsersQuery request, CancellationToken cancellationToken)
-        => (await _userRepository.ListAsync(cancellationToken))
+    {
+        var tenantId = _tenantScope.GetRequiredTenantId().Value;
+        return (await _userRepository.ListByTenantAsync(tenantId, cancellationToken))
             .Select(x => new UserDto(x.Id, x.TenantId, x.Email, x.RoleAssignments.Select(r => r.RoleId).ToList()))
             .ToList();
+    }
 
     /// <inheritdoc />
     public async Task<IReadOnlyList<RoleDto>> Handle(ListRolesQuery request, CancellationToken cancellationToken)
-        => (await _roleRepository.ListAsync(cancellationToken))
+    {
+        var tenantId = _tenantScope.GetRequiredTenantId().Value;
+        return (await _roleRepository.ListByTenantAsync(tenantId, cancellationToken))
             .Select(x => new RoleDto(x.Id, x.TenantId, x.Name, x.PermissionAssignments.Select(p => p.Permission.Code).ToList()))
             .ToList();
+    }
 }

@@ -31,6 +31,9 @@ Chronological record of significant engineering decisions. Detailed rationale li
 | 2026-07-07 | D-020 | Renumber folders 04–16 → 04–18 | Accommodate BCM and state machines | [Change-Log](Change-Log.md) |
 | 2026-07-07 | D-021 | Refine M6 scope without reordering | Keep frozen roadmap; implement AI abstraction foundation plus minimal admin shell connectivity checks | ADR-TECH-002 |
 | 2026-07-08 | D-022 | Complete P2-M1 BC-10 Identity Core | First business BC delivered per Phase 2 plan; tenant/user/role RBAC foundation | [p2-m1-identity-access-core.md](../../../docs/development/p2-m1-identity-access-core.md) |
+| 2026-07-08 | D-023 | Accept Pre-P2-M2 Hardening Sprint (H-01–H-09) | Close audit findings before P2-M2; FK constraints, tenant scope, arch tests, idempotency, plugin security | [CHANGELOG.md](../../../CHANGELOG.md#021--2026-07-08) |
+| 2026-07-08 | D-024 | Tenant isolation fail-closed (AUD-DM-01) | `EnsureMatches()` must reject missing `X-Tenant-Id` on tenant-scoped mutations; platform-scoped ops remain header-optional | [CHANGELOG.md](../../../CHANGELOG.md#021--2026-07-08) |
+| 2026-07-08 | D-025 | Freeze foundation before P2-M2 | No further refactoring unless required by future milestones; tag and commit hardening baseline | [milestone-progress.md](../../../docs/development/milestone-progress.md) |
 
 ---
 
