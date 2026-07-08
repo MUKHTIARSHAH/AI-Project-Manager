@@ -7,9 +7,17 @@
 [![Release](https://img.shields.io/github/v/release/MUKHTIARSHAH/AI-Project-Manager?include_prereleases)](https://github.com/MUKHTIARSHAH/AI-Project-Manager/releases/tag/v0.2.1-foundation-freeze)
 [![Last commit](https://img.shields.io/github/last-commit/MUKHTIARSHAH/AI-Project-Manager)](https://github.com/MUKHTIARSHAH/AI-Project-Manager/commits/main)
 
-**Enterprise AI project management control plane** — a multi-tenant platform that coordinates software delivery through specialized AI agents, human approvals, and audit-grade governance.
+**AI Project Manager (AIPM) is an open-source enterprise AI orchestration platform** built with ASP.NET Core, Clean Architecture, Domain-Driven Design (DDD), CQRS, MediatR, and event-driven architecture. It is designed to coordinate AI agents, human approvals, and software delivery through audit-grade governance.
 
 > **Current release:** [`v0.2.1-foundation-freeze`](https://github.com/MUKHTIARSHAH/AI-Project-Manager/releases/tag/v0.2.1-foundation-freeze) — Phase 1 platform + BC-10 Identity & Access Core + hardening sprint. Foundation is **frozen** before P2-M2.
+
+---
+
+## Project status
+
+- **Current version:** `v0.2.1-foundation-freeze`
+- **Current phase:** Phase 2 - BC-01 Portfolio and Project Core (planned)
+- **Status:** Actively developed
 
 ---
 
@@ -102,7 +110,7 @@ Locked by [ADR-TECH-001](Engineering-Blueprint/02-Architecture/ADR/ADR-TECH-001-
 |------|------------|
 | Backend | C# / .NET 9 / ASP.NET Core 9 |
 | Patterns | Clean Architecture, DDD, CQRS, MediatR |
-| Database | PostgreSQL 16+ (prod); SQLite (local dev identity) |
+| Database | PostgreSQL 16+ (`aipm_dev` local identity); SQLite in-memory for unit tests |
 | Cache | Redis |
 | Messaging | RabbitMQ (MassTransit) |
 | Frontend | Next.js (TypeScript) — minimal admin shell |
@@ -168,9 +176,19 @@ dotnet test AIPM.sln -c Release
 ```bash
 cd src/AIPM.Host
 
+# PostgreSQL identity store (development)
+dotnet user-secrets set "ConnectionStrings:IdentityDb" "Host=localhost;Port=5432;Database=aipm_dev;Username=postgres;Password=YOUR_PASSWORD"
 dotnet user-secrets set "Security:ApiKey" "dev-local-bc10-key"
-dotnet user-secrets set "ConnectionStrings:IdentityDb" "Data Source=aipm.identity.db"
+```
 
+First-time database setup:
+
+```powershell
+$env:AIPM_POSTGRES_PASSWORD = 'YOUR_PASSWORD'
+.\scripts\provision-aipm-dev-db.ps1
+```
+
+```bash
 cd ..
 dotnet run --project AIPM.Host
 ```
@@ -260,11 +278,23 @@ See [docs/development/milestone-quality-gate.md](docs/development/milestone-qual
 
 ## Contributing
 
-This is an actively developed software engineering project. The `v0.2.1-foundation-freeze` release provides a stable baseline, and new development proceeds incrementally from that foundation.
+Contributions, suggestions, and discussions are welcome.
 
-1. Fork and branch from `main`
-2. Run quality gates locally before pushing
-3. Open a pull request (CI must pass)
+If you'd like to contribute:
+
+1. Fork the repository
+2. Create a feature branch
+3. Follow the project's coding standards
+4. Ensure all quality gates pass
+5. Submit a pull request
+
+Before submitting:
+
+- `dotnet build src/AIPM.sln -c Release`
+- `dotnet test src/AIPM.sln -c Release`
+- `dotnet format src/AIPM.sln --verify-no-changes`
+
+Please open an issue first for significant architectural or feature changes.
 
 ---
 
@@ -274,8 +304,8 @@ This is an actively developed software engineering project. The `v0.2.1-foundati
 
 ---
 
-## Author
+## Maintainer
 
-**Mukhtiar Shah** — [GitHub](https://github.com/MUKHTIARSHAH)
+Mukhtiar Shah
 
-AI Project Manager is an open-source software engineering project demonstrating modern enterprise architecture, including Clean Architecture, Domain-Driven Design (DDD), CQRS, MediatR, automated testing, architecture validation, and disciplined release management.
+GitHub: [https://github.com/MUKHTIARSHAH](https://github.com/MUKHTIARSHAH)
