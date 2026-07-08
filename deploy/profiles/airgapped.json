@@ -1,0 +1,13 @@
+{
+  "Deployment": {
+    "Profile": "airgapped",
+    "Capabilities": {
+      "PublicEgress": false,
+      "SharedAgentPools": false,
+      "CloudLlmRoutes": false,
+      "DedicatedCompute": true,
+      "CustomerManagedKeys": true,
+      "StoreAndForwardUpdates": true
+    }
+  }
+}

@@ -1,0 +1,7 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <RootNamespace>AIPM.SharedKernel</RootNamespace>
+    <AssemblyName>AIPM.SharedKernel</AssemblyName>
+    <Description>Shared kernel primitives for AIPM control plane.</Description>
+  </PropertyGroup>
+</Project>

@@ -1,0 +1,23 @@
+---
+description: Permanent definition of done for every AIPM runtime component and milestone.
+alwaysApply: true
+---
+
+# AIPM Definition of Done
+
+Every new runtime component is **not complete** until **all** of the following pass:
+
+1. Builds successfully (`dotnet build src/AIPM.sln -c Release`)
+2. All tests pass (`dotnet test src/AIPM.sln -c Release`)
+3. Architecture tests pass (`AIPM.Architecture.Tests`)
+4. No analyzer warnings in CI (`TreatWarningsAsErrors` when `CI=true`)
+5. `dotnet format src/AIPM.sln --verify-no-changes` passes
+6. Public APIs have XML documentation comments
+7. Clean Architecture dependency rules are not violated (NetArchTest)
+8. No circular project references
+9. Docker Compose stack still starts (`deploy/docker/docker-compose.yml`)
+10. Existing milestones are not broken (no regressions)
+
+A milestone is finished when the software **runs** and demonstrates the capability — not when a document says APPROVED.
+
+**M2+:** No AI/LLM providers until the dummy-agent vertical slice works end-to-end.

@@ -1,0 +1,26 @@
+# .NET
+bin/
+obj/
+*.user
+*.suo
+.vs/
+TestResults/
+coverage/
+*.opencover.xml
+
+# IDE
+.idea/
+*.swp
+
+# OS
+Thumbs.db
+.DS_Store
+
+# Secrets
+appsettings.*.local.json
+.env
+
+# Local SQLite identity databases
+*.db
+*.db-shm
+*.db-wal

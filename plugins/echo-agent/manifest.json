@@ -1,0 +1,8 @@
+{
+  "id": "echo-agent",
+  "name": "EchoAgent",
+  "version": "1.0.0",
+  "minPlatformVersion": "0.1.0",
+  "capabilities": ["echo"],
+  "builtInAgent": "echo"
+}

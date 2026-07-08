@@ -1,0 +1,13 @@
+{
+  "Deployment": {
+    "Profile": "dedicated",
+    "Capabilities": {
+      "PublicEgress": true,
+      "SharedAgentPools": false,
+      "CloudLlmRoutes": true,
+      "DedicatedCompute": true,
+      "CustomerManagedKeys": true,
+      "StoreAndForwardUpdates": false
+    }
+  }
+}
