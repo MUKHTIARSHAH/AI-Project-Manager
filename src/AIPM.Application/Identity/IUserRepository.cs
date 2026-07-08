@@ -17,6 +17,9 @@ public interface IUserRepository
     /// <summary>Lists users.</summary>
     Task<IReadOnlyList<User>> ListAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>Lists users for a tenant.</summary>
+    Task<IReadOnlyList<User>> ListByTenantAsync(Guid tenantId, CancellationToken cancellationToken = default);
+
     /// <summary>Saves pending changes.</summary>
     Task SaveChangesAsync(CancellationToken cancellationToken = default);
 }

@@ -39,7 +39,7 @@ public sealed class PlatformStartedConsumer : IConsumer<PlatformStartedEvent>
         activity?.SetTag("messaging.causation_id", message.CausationId);
         activity?.SetTag("messaging.contract_version", message.ContractVersion);
 
-        if (!_idempotencyStore.TryMarkProcessed(message.MessageId))
+        if (_idempotencyStore.HasBeenProcessed(message.MessageId))
         {
             _logger.LogInformation(
                 "Skipping duplicate PlatformStarted message id={MessageId} correlation={CorrelationId}",
@@ -56,6 +56,7 @@ public sealed class PlatformStartedConsumer : IConsumer<PlatformStartedEvent>
                 message.StartedAt,
                 message.CorrelationId);
             _healthState.ReportSuccess();
+            _idempotencyStore.MarkProcessed(message.MessageId);
         }
         catch (Exception ex)
         {

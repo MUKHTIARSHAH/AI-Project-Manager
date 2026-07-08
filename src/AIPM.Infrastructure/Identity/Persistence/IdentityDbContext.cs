@@ -41,6 +41,10 @@ public sealed class IdentityDbContext : DbContext
             entity.HasKey(x => x.Id);
             entity.Property(x => x.Email).HasMaxLength(320).IsRequired();
             entity.HasIndex(x => new { x.TenantId, x.Email }).IsUnique();
+            entity.HasOne<TenantRecord>()
+                .WithMany()
+                .HasForeignKey(x => x.TenantId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<RoleRecord>(entity =>
@@ -49,12 +53,24 @@ public sealed class IdentityDbContext : DbContext
             entity.HasKey(x => x.Id);
             entity.Property(x => x.Name).HasMaxLength(128).IsRequired();
             entity.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
+            entity.HasOne<TenantRecord>()
+                .WithMany()
+                .HasForeignKey(x => x.TenantId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<RoleAssignmentRecord>(entity =>
         {
             entity.ToTable("identity_role_assignments");
             entity.HasKey(x => new { x.UserId, x.RoleId });
+            entity.HasOne<UserRecord>()
+                .WithMany()
+                .HasForeignKey(x => x.UserId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<RoleRecord>()
+                .WithMany()
+                .HasForeignKey(x => x.RoleId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
 
         modelBuilder.Entity<PermissionAssignmentRecord>(entity =>
@@ -62,6 +78,10 @@ public sealed class IdentityDbContext : DbContext
             entity.ToTable("identity_permission_assignments");
             entity.HasKey(x => new { x.RoleId, x.PermissionCode });
             entity.Property(x => x.PermissionCode).HasMaxLength(128).IsRequired();
+            entity.HasOne<RoleRecord>()
+                .WithMany()
+                .HasForeignKey(x => x.RoleId)
+                .OnDelete(DeleteBehavior.Restrict);
         });
     }
 }

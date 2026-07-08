@@ -1,3 +1,4 @@
+using AIPM.Application.Identity;
 using AIPM.Application.Runtime.Pipeline;
 using Microsoft.Extensions.DependencyInjection;
 
@@ -20,6 +21,8 @@ public static class DependencyInjection
 
         services.AddScoped<Runtime.PlatformRuntimeOrchestrator>();
         services.AddScoped<AI.IAiProviderPipeline, AI.AiProviderPipeline>();
+        services.AddScoped<ITenantScope, ExecutionContextTenantScope>();
+        services.AddScoped<IDomainEventDispatcher, IdentityDomainEventDispatcher>();
         return services;
     }
 }

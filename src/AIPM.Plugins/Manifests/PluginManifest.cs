@@ -22,4 +22,7 @@ public sealed class PluginManifest
 
     /// <summary>Built-in agent key when no external assembly is loaded.</summary>
     public string? BuiltInAgent { get; init; }
+
+    /// <summary>Optional plugin signature for non-development environments.</summary>
+    public string? Signature { get; init; }
 }

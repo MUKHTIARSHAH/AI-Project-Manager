@@ -19,6 +19,9 @@ public interface ITenantRepository
     /// <summary>Lists tenants.</summary>
     Task<IReadOnlyList<Tenant>> ListAsync(CancellationToken cancellationToken = default);
 
+    /// <summary>Lists tenants filtered by tenant id.</summary>
+    Task<IReadOnlyList<Tenant>> ListByTenantAsync(Guid tenantId, CancellationToken cancellationToken = default);
+
     /// <summary>Saves pending changes.</summary>
     Task SaveChangesAsync(CancellationToken cancellationToken = default);
 }

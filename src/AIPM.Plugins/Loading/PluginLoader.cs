@@ -15,6 +15,9 @@ public sealed class PluginLoaderOptions
 {
     /// <summary>Root paths to scan for plugin manifests.</summary>
     public string[] ScanPaths { get; set; } = ["plugins"];
+
+    /// <summary>When false, manifests must include a signature.</summary>
+    public bool AllowUnsignedPlugins { get; set; } = true;
 }
 
 /// <summary>
@@ -29,6 +32,8 @@ public sealed class PluginLoader : IPluginLoader
     private readonly IAgentRegistry _agentRegistry;
     private readonly PluginLoaderOptions _options;
     private readonly ILogger<PluginLoader> _logger;
+    private PluginLoadResult? _cachedResult;
+    private bool _loaded;
 
     /// <summary>Initializes loader.</summary>
     public PluginLoader(
@@ -48,6 +53,11 @@ public sealed class PluginLoader : IPluginLoader
     /// <inheritdoc />
     public Task<PluginLoadResult> LoadAsync(CancellationToken cancellationToken = default)
     {
+        if (_loaded && _cachedResult is not null)
+        {
+            return Task.FromResult(_cachedResult);
+        }
+
         var errors = new List<string>();
         var discovered = 0;
         var registered = 0;
@@ -72,6 +82,12 @@ public sealed class PluginLoader : IPluginLoader
                     if (manifest is null)
                     {
                         errors.Add($"Could not parse {manifestPath}");
+                        continue;
+                    }
+
+                    if (!_options.AllowUnsignedPlugins && string.IsNullOrWhiteSpace(manifest.Signature))
+                    {
+                        errors.Add($"{manifestPath}: unsigned plugin rejected (AllowUnsignedPluginsDev is disabled)");
                         continue;
                     }
 
@@ -109,7 +125,9 @@ public sealed class PluginLoader : IPluginLoader
             }
         }
 
-        return Task.FromResult(new PluginLoadResult(discovered, registered, errors));
+        _cachedResult = new PluginLoadResult(discovered, registered, errors);
+        _loaded = true;
+        return Task.FromResult(_cachedResult);
     }
 
     private static bool TryCreateAgentFactory(PluginManifest manifest, out Func<IPlatformAgent> factory)

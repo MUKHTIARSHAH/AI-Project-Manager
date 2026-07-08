@@ -21,6 +21,19 @@ public sealed class ArchitectureTests
             string.Join(", ", result.FailingTypeNames ?? []));
     }
 
+    /// <summary>Domain must not reference Application.</summary>
+    [Fact]
+    public void Domain_ShouldNotReference_Application()
+    {
+        var result = Types.InAssembly(typeof(AIPM.Domain.Primitives.AggregateRoot).Assembly)
+            .ShouldNot()
+            .HaveDependencyOn("AIPM.Application")
+            .GetResult();
+
+        result.IsSuccessful.Should().BeTrue(
+            string.Join(", ", result.FailingTypeNames ?? []));
+    }
+
     /// <summary>Plugins must not reference Host or Infrastructure.</summary>
     [Fact]
     public void Plugins_ShouldNotReference_HostOrInfrastructure()
@@ -52,6 +65,32 @@ public sealed class ArchitectureTests
     public void Application_ShouldNotReference_Host()
     {
         var result = Types.InAssembly(typeof(AIPM.Application.DependencyInjection).Assembly)
+            .ShouldNot()
+            .HaveDependencyOn("AIPM.Host")
+            .GetResult();
+
+        result.IsSuccessful.Should().BeTrue(
+            string.Join(", ", result.FailingTypeNames ?? []));
+    }
+
+    /// <summary>Application must not reference Infrastructure.</summary>
+    [Fact]
+    public void Application_ShouldNotReference_Infrastructure()
+    {
+        var result = Types.InAssembly(typeof(AIPM.Application.DependencyInjection).Assembly)
+            .ShouldNot()
+            .HaveDependencyOn("AIPM.Infrastructure")
+            .GetResult();
+
+        result.IsSuccessful.Should().BeTrue(
+            string.Join(", ", result.FailingTypeNames ?? []));
+    }
+
+    /// <summary>Infrastructure must not reference Host.</summary>
+    [Fact]
+    public void Infrastructure_ShouldNotReference_Host()
+    {
+        var result = Types.InAssembly(typeof(AIPM.Infrastructure.DependencyInjection).Assembly)
             .ShouldNot()
             .HaveDependencyOn("AIPM.Host")
             .GetResult();
