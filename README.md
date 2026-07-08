@@ -260,7 +260,7 @@ See [docs/development/milestone-quality-gate.md](docs/development/milestone-qual
 
 ## Contributing
 
-This is an active final-year engineering project. Foundation code at `v0.2.1-foundation-freeze` is frozen. New work should build incrementally from that tag.
+This is an actively developed software engineering project. The `v0.2.1-foundation-freeze` release provides a stable baseline, and new development proceeds incrementally from that foundation.
 
 1. Fork and branch from `main`
 2. Run quality gates locally before pushing
@@ -278,4 +278,4 @@ This is an active final-year engineering project. Foundation code at `v0.2.1-fou
 
 **Mukhtiar Shah** — [GitHub](https://github.com/MUKHTIARSHAH)
 
-BSCS Final Year Project — demonstrating professional software engineering practices: Clean Architecture, DDD, automated testing, architecture validation, and release discipline.
+AI Project Manager is an open-source software engineering project demonstrating modern enterprise architecture, including Clean Architecture, Domain-Driven Design (DDD), CQRS, MediatR, automated testing, architecture validation, and disciplined release management.
