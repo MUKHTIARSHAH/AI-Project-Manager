@@ -5,11 +5,13 @@ namespace AIPM.Domain.Portfolio;
 
 /// <summary>
 /// AGG-004 Project aggregate.
-/// Trace: FR-001, CAP-001, CON-008, CMD-020, CMD-021, EVT-020, EVT-021, ADR-005, IDL-001.
+/// Trace: FR-001, FR-004, CAP-001, CAP-004, CON-008, CON-011, CMD-020, CMD-021, CMD-022, EVT-020, EVT-021, ADR-005, IDL-001.
 /// Workspace is referenced only (CON-003 / ENT-002); ownership remains outside BC-01 create path.
 /// </summary>
 public sealed class ProjectAggregate : AggregateRoot
 {
+    private readonly List<ScopeChange> _scopeChanges = [];
+
     private ProjectAggregate(
         Guid id,
         Guid tenantId,
@@ -19,7 +21,8 @@ public sealed class ProjectAggregate : AggregateRoot
         string name,
         ProjectStatus status,
         DateTimeOffset createdAt,
-        DateTimeOffset? archivedAt)
+        DateTimeOffset? archivedAt,
+        IEnumerable<ScopeChange>? scopeChanges = null)
     {
         Id = id;
         TenantId = tenantId;
@@ -30,6 +33,10 @@ public sealed class ProjectAggregate : AggregateRoot
         Status = status;
         CreatedAt = createdAt;
         ArchivedAt = archivedAt;
+        if (scopeChanges is not null)
+        {
+            _scopeChanges.AddRange(scopeChanges);
+        }
     }
 
     /// <summary>Project identifier.</summary>
@@ -61,6 +68,9 @@ public sealed class ProjectAggregate : AggregateRoot
 
     /// <summary>Whether the project is read-only.</summary>
     public bool IsArchived => Status == ProjectStatus.Archived;
+
+    /// <summary>Owned scope changes (CON-011).</summary>
+    public IReadOnlyList<ScopeChange> ScopeChanges => _scopeChanges.AsReadOnly();
 
     /// <summary>
     /// CMD-020 CreateProject. Preconditions: Workspace exists (caller-enforced by reference id).
@@ -162,6 +172,75 @@ public sealed class ProjectAggregate : AggregateRoot
         Raise(new ProjectArchivedDomainEvent(Id, TenantId, Name));
     }
 
+    /// <summary>
+    /// CMD-022 RecordScopeChange. Postcondition: ScopeChange Proposed under this project.
+    /// Blocked when project is archived.
+    /// Trace: FR-004, CAP-004, CON-011, ADR-003.
+    /// </summary>
+    public ScopeChange RecordScopeChange(
+        string title,
+        string description,
+        string? affectedRequirementCitation = null)
+    {
+        EnsureMutable();
+
+        var scopeChange = ScopeChange.CreateProposed(
+            Id,
+            TenantId,
+            title,
+            description,
+            affectedRequirementCitation);
+        _scopeChanges.Add(scopeChange);
+        Raise(new ScopeChangeRecordedDomainEvent(
+            scopeChange.Id,
+            Id,
+            TenantId,
+            scopeChange.Title,
+            scopeChange.Description,
+            scopeChange.AffectedRequirementCitation));
+
+        return scopeChange;
+    }
+
+    /// <summary>
+    /// Approves a Proposed scope change (FR-004 approval trail).
+    /// Trace: CON-011, CAP-004.
+    /// </summary>
+    public ScopeChange ApproveScopeChange(Guid scopeChangeId)
+    {
+        EnsureMutable();
+        var scopeChange = GetScopeChange(scopeChangeId);
+        scopeChange.Approve();
+        Raise(new ScopeChangeApprovedDomainEvent(scopeChange.Id, Id, TenantId, scopeChange.Title));
+        return scopeChange;
+    }
+
+    /// <summary>
+    /// Rejects a Proposed scope change (FR-004 approval trail).
+    /// Trace: CON-011, CAP-004.
+    /// </summary>
+    public ScopeChange RejectScopeChange(Guid scopeChangeId)
+    {
+        EnsureMutable();
+        var scopeChange = GetScopeChange(scopeChangeId);
+        scopeChange.Reject();
+        Raise(new ScopeChangeRejectedDomainEvent(scopeChange.Id, Id, TenantId, scopeChange.Title));
+        return scopeChange;
+    }
+
+    /// <summary>
+    /// Marks an Approved scope change as Implemented (CON-011 lifecycle).
+    /// Trace: FR-004, CAP-004.
+    /// </summary>
+    public ScopeChange MarkScopeChangeImplemented(Guid scopeChangeId)
+    {
+        EnsureMutable();
+        var scopeChange = GetScopeChange(scopeChangeId);
+        scopeChange.MarkImplemented();
+        Raise(new ScopeChangeImplementedDomainEvent(scopeChange.Id, Id, TenantId, scopeChange.Title));
+        return scopeChange;
+    }
+
     /// <summary>Rehydrates from persistence.</summary>
     public static ProjectAggregate Rehydrate(
         Guid id,
@@ -172,8 +251,13 @@ public sealed class ProjectAggregate : AggregateRoot
         string name,
         ProjectStatus status,
         DateTimeOffset createdAt,
-        DateTimeOffset? archivedAt)
-        => new(id, tenantId, programId, workspaceId, ownerUserId, name, status, createdAt, archivedAt);
+        DateTimeOffset? archivedAt,
+        IEnumerable<ScopeChange>? scopeChanges = null)
+        => new(id, tenantId, programId, workspaceId, ownerUserId, name, status, createdAt, archivedAt, scopeChanges);
+
+    private ScopeChange GetScopeChange(Guid scopeChangeId)
+        => _scopeChanges.FirstOrDefault(x => x.Id == scopeChangeId)
+            ?? throw new NotFoundError($"Scope change '{scopeChangeId}' not found on project '{Id}'.");
 
     private void EnsureMutable()
     {
@@ -227,6 +311,65 @@ public sealed record ProjectCreatedDomainEvent(
 /// Trace: CMD-021, FR-001, AGG-004.
 /// </summary>
 public sealed record ProjectArchivedDomainEvent(Guid ProjectId, Guid TenantId, string Name) : IDomainEvent
+{
+    /// <inheritdoc />
+    public DateTimeOffset OccurredAt { get; } = DateTimeOffset.UtcNow;
+}
+
+/// <summary>
+/// ScopeChangeRecorded domain event (CMD-022).
+/// Catalog gap: Commands-Events-Catalog has no EVT-022 row; named for FR-004 / CON-011.
+/// Trace: FR-004, CAP-004, CON-011, CMD-022, AGG-004, ADR-SAD-004.
+/// </summary>
+public sealed record ScopeChangeRecordedDomainEvent(
+    Guid ScopeChangeId,
+    Guid ProjectId,
+    Guid TenantId,
+    string Title,
+    string Description,
+    string? AffectedRequirementCitation) : IDomainEvent
+{
+    /// <inheritdoc />
+    public DateTimeOffset OccurredAt { get; } = DateTimeOffset.UtcNow;
+}
+
+/// <summary>
+/// ScopeChangeApproved domain event (FR-004 approval trail).
+/// Trace: FR-004, CAP-004, CON-011, AGG-004.
+/// </summary>
+public sealed record ScopeChangeApprovedDomainEvent(
+    Guid ScopeChangeId,
+    Guid ProjectId,
+    Guid TenantId,
+    string Title) : IDomainEvent
+{
+    /// <inheritdoc />
+    public DateTimeOffset OccurredAt { get; } = DateTimeOffset.UtcNow;
+}
+
+/// <summary>
+/// ScopeChangeRejected domain event (FR-004 approval trail).
+/// Trace: FR-004, CAP-004, CON-011, AGG-004.
+/// </summary>
+public sealed record ScopeChangeRejectedDomainEvent(
+    Guid ScopeChangeId,
+    Guid ProjectId,
+    Guid TenantId,
+    string Title) : IDomainEvent
+{
+    /// <inheritdoc />
+    public DateTimeOffset OccurredAt { get; } = DateTimeOffset.UtcNow;
+}
+
+/// <summary>
+/// ScopeChangeImplemented domain event (CON-011 lifecycle completion).
+/// Trace: FR-004, CAP-004, CON-011, AGG-004.
+/// </summary>
+public sealed record ScopeChangeImplementedDomainEvent(
+    Guid ScopeChangeId,
+    Guid ProjectId,
+    Guid TenantId,
+    string Title) : IDomainEvent
 {
     /// <inheritdoc />
     public DateTimeOffset OccurredAt { get; } = DateTimeOffset.UtcNow;

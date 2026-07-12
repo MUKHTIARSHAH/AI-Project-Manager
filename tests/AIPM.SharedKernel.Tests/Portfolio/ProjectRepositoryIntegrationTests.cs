@@ -92,6 +92,41 @@ public sealed class ProjectRepositoryIntegrationTests : IAsyncLifetime
         archived.ArchivedAt.Should().NotBeNull();
     }
 
+    [Fact]
+    public async Task ProjectRepository_PersistsAndLoadsScopeChanges()
+    {
+        var tenant = await SeedTenantHierarchyAsync("Scope-Tenant");
+        var repository = new ProjectRepository(_dbContext);
+        var project = ProjectAggregate.Create(
+            tenant.TenantId,
+            tenant.ProgramId,
+            Guid.NewGuid(),
+            tenant.OwnerUserId,
+            "Scope Host");
+        await repository.AddAsync(project);
+        await repository.SaveChangesAsync();
+
+        var loaded = await repository.FindAsync(tenant.TenantId, project.Id);
+        var recorded = loaded!.RecordScopeChange("Add OAuth2", "Login scope", "REQ-1");
+        await repository.UpdateAsync(loaded);
+        await repository.SaveChangesAsync();
+
+        var reloaded = await repository.FindAsync(tenant.TenantId, project.Id);
+        reloaded!.ScopeChanges.Should().ContainSingle();
+        var scopeChange = reloaded.ScopeChanges.Single();
+        scopeChange.Id.Should().Be(recorded.Id);
+        scopeChange.Status.Should().Be(ScopeChangeStatus.Proposed);
+        scopeChange.Title.Should().Be("Add OAuth2");
+
+        reloaded.ApproveScopeChange(scopeChange.Id);
+        await repository.UpdateAsync(reloaded);
+        await repository.SaveChangesAsync();
+
+        var approved = await repository.FindAsync(tenant.TenantId, project.Id);
+        approved!.ScopeChanges.Single().Status.Should().Be(ScopeChangeStatus.Approved);
+        approved.ScopeChanges.Single().DecidedAt.Should().NotBeNull();
+    }
+
     private async Task<(Guid TenantId, Guid ProgramId, Guid OwnerUserId)> SeedTenantHierarchyAsync(string name)
     {
         var tenantRepository = new TenantRepository(_dbContext);

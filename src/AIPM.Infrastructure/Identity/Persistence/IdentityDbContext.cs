@@ -30,6 +30,8 @@ public sealed class IdentityDbContext : DbContext
     public DbSet<ProgramRecord> Programs => Set<ProgramRecord>();
     /// <summary>Projects table (BC-01 AGG-004).</summary>
     public DbSet<ProjectRecord> Projects => Set<ProjectRecord>();
+    /// <summary>Scope changes table (BC-01 CON-011 / CMD-022).</summary>
+    public DbSet<ScopeChangeRecord> ScopeChanges => Set<ScopeChangeRecord>();
 
     /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -134,6 +136,27 @@ public sealed class IdentityDbContext : DbContext
                 .WithMany()
                 .HasForeignKey(x => x.ProgramId)
                 .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<ScopeChangeRecord>(entity =>
+        {
+            entity.ToTable("portfolio_scope_changes");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).ValueGeneratedNever();
+            entity.Property(x => x.Title).HasMaxLength(200).IsRequired();
+            entity.Property(x => x.Description).HasMaxLength(4000).IsRequired();
+            entity.Property(x => x.AffectedRequirementCitation).HasMaxLength(2000);
+            entity.Property(x => x.Status).HasMaxLength(32).IsRequired();
+            entity.HasIndex(x => x.TenantId);
+            entity.HasIndex(x => new { x.TenantId, x.ProjectId });
+            entity.HasOne<TenantRecord>()
+                .WithMany()
+                .HasForeignKey(x => x.TenantId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<ProjectRecord>()
+                .WithMany()
+                .HasForeignKey(x => x.ProjectId)
+                .OnDelete(DeleteBehavior.Cascade);
         });
     }
 }

@@ -94,4 +94,74 @@ public sealed class ProjectDomainTests
         project.OwnerUserId.Should().Be(owner);
         project.WorkspaceId.Should().Be(workspace);
     }
+
+    [Fact]
+    public void RecordScopeChange_OnActiveProject_AddsProposedAndRaisesEvent()
+    {
+        var project = ProjectAggregate.Create(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "Scoped");
+        project.ClearDomainEvents();
+
+        var scopeChange = project.RecordScopeChange(
+            "Add OAuth2",
+            "Extend login scope",
+            "REQ-1, REQ-2");
+
+        scopeChange.Status.Should().Be(ScopeChangeStatus.Proposed);
+        project.ScopeChanges.Should().ContainSingle(x => x.Id == scopeChange.Id);
+        project.DomainEvents.Should().ContainSingle(x => x is ScopeChangeRecordedDomainEvent);
+        scopeChange.AffectedRequirementCitation.Should().Be("REQ-1, REQ-2");
+    }
+
+    [Fact]
+    public void RecordScopeChange_OnArchivedProject_Throws()
+    {
+        var project = ProjectAggregate.Create(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "Archived Scope");
+        project.Archive();
+
+        var act = () => project.RecordScopeChange("Title", "Description");
+        act.Should().Throw<ValidationError>().WithMessage("*read-only*");
+    }
+
+    [Fact]
+    public void ApproveRejectImplement_FollowLifecycle_AndInvalidTransitionsThrow()
+    {
+        var project = ProjectAggregate.Create(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "Lifecycle");
+        var proposed = project.RecordScopeChange("Title", "Description");
+        project.ClearDomainEvents();
+
+        var approved = project.ApproveScopeChange(proposed.Id);
+        approved.Status.Should().Be(ScopeChangeStatus.Approved);
+        approved.DecidedAt.Should().NotBeNull();
+        project.DomainEvents.Should().ContainSingle(x => x is ScopeChangeApprovedDomainEvent);
+
+        var implement = project.MarkScopeChangeImplemented(proposed.Id);
+        implement.Status.Should().Be(ScopeChangeStatus.Implemented);
+        project.DomainEvents.Should().Contain(x => x is ScopeChangeImplementedDomainEvent);
+
+        var rejectAfterImplemented = () => project.RejectScopeChange(proposed.Id);
+        rejectAfterImplemented.Should().Throw<ValidationError>();
+
+        var other = project.RecordScopeChange("Other", "Desc");
+        project.RejectScopeChange(other.Id).Status.Should().Be(ScopeChangeStatus.Rejected);
+        var approveRejected = () => project.ApproveScopeChange(other.Id);
+        approveRejected.Should().Throw<ValidationError>();
+
+        var approveMissing = () => project.ApproveScopeChange(Guid.NewGuid());
+        approveMissing.Should().Throw<NotFoundError>();
+    }
 }

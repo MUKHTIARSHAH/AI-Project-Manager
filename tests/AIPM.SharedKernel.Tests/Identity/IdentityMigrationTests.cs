@@ -36,6 +36,7 @@ public sealed class IdentityMigrationTests
         tableNames.Should().Contain("portfolio_portfolios");
         tableNames.Should().Contain("portfolio_programs");
         tableNames.Should().Contain("portfolio_projects");
+        tableNames.Should().Contain("portfolio_scope_changes");
 
         await using var fkCommand = connection.CreateCommand();
         fkCommand.CommandText = "PRAGMA foreign_key_list('identity_users');";
@@ -63,5 +64,19 @@ public sealed class IdentityMigrationTests
 
         projectForeignKeys.Should().Contain("identity_tenants");
         projectForeignKeys.Should().Contain("portfolio_programs");
+
+        await using var scopeFkCommand = connection.CreateCommand();
+        scopeFkCommand.CommandText = "PRAGMA foreign_key_list('portfolio_scope_changes');";
+        var scopeForeignKeys = new List<string>();
+        await using (var scopeFkReader = await scopeFkCommand.ExecuteReaderAsync())
+        {
+            while (await scopeFkReader.ReadAsync())
+            {
+                scopeForeignKeys.Add(scopeFkReader.GetString(2));
+            }
+        }
+
+        scopeForeignKeys.Should().Contain("identity_tenants");
+        scopeForeignKeys.Should().Contain("portfolio_projects");
     }
 }

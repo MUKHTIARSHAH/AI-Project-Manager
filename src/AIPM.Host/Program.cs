@@ -350,6 +350,18 @@ projects.MapPut("/{projectId:guid}", async (IMediator mediator, Guid projectId, 
     Results.Ok(await mediator.Send(new UpdateProjectCommand(projectId, request.WorkspaceId, request.OwnerUserId, request.Name), ct)));
 projects.MapPost("/{projectId:guid}/archive", async (IMediator mediator, Guid projectId, CancellationToken ct) =>
     Results.Ok(await mediator.Send(new ArchiveProjectCommand(projectId), ct)));
+projects.MapGet("/{projectId:guid}/scope-changes", async (IMediator mediator, Guid projectId, CancellationToken ct) =>
+    Results.Ok(await mediator.Send(new ListScopeChangesQuery(projectId), ct)));
+projects.MapGet("/{projectId:guid}/scope-changes/{scopeChangeId:guid}", async (IMediator mediator, Guid projectId, Guid scopeChangeId, CancellationToken ct) =>
+    Results.Ok(await mediator.Send(new GetScopeChangeQuery(projectId, scopeChangeId), ct)));
+projects.MapPost("/{projectId:guid}/scope-changes", async (IMediator mediator, Guid projectId, RecordScopeChangeRequest request, CancellationToken ct) =>
+    Results.Ok(await mediator.Send(new RecordScopeChangeCommand(projectId, request.Title, request.Description, request.AffectedRequirementCitation), ct)));
+projects.MapPost("/{projectId:guid}/scope-changes/{scopeChangeId:guid}/approve", async (IMediator mediator, Guid projectId, Guid scopeChangeId, CancellationToken ct) =>
+    Results.Ok(await mediator.Send(new ApproveScopeChangeCommand(projectId, scopeChangeId), ct)));
+projects.MapPost("/{projectId:guid}/scope-changes/{scopeChangeId:guid}/reject", async (IMediator mediator, Guid projectId, Guid scopeChangeId, CancellationToken ct) =>
+    Results.Ok(await mediator.Send(new RejectScopeChangeCommand(projectId, scopeChangeId), ct)));
+projects.MapPost("/{projectId:guid}/scope-changes/{scopeChangeId:guid}/implement", async (IMediator mediator, Guid projectId, Guid scopeChangeId, CancellationToken ct) =>
+    Results.Ok(await mediator.Send(new ImplementScopeChangeCommand(projectId, scopeChangeId), ct)));
 
 using (var scope = app.Services.CreateScope())
 {
@@ -414,5 +426,8 @@ public sealed record AssignPermissionRequest(string PermissionCode);
 
 /// <summary>Project update request body.</summary>
 public sealed record UpdateProjectRequest(Guid WorkspaceId, Guid OwnerUserId, string Name);
+
+/// <summary>Scope change record request body (CMD-022).</summary>
+public sealed record RecordScopeChangeRequest(string Title, string Description, string? AffectedRequirementCitation);
 
 
