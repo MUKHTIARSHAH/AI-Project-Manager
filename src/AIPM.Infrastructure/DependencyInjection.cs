@@ -93,6 +93,7 @@ public static class DependencyInjection
         services.AddScoped<IPortfolioRepository, PortfolioRepository>();
         services.AddScoped<IProgramRepository, ProgramRepository>();
         services.AddScoped<IProjectRepository, ProjectRepository>();
+        services.AddScoped<IPortfolioProjectionReadRepository, PortfolioProjectionReadRepository>();
 
         var identityConnection = configuration.GetConnectionString("IdentityDb");
         if (string.IsNullOrWhiteSpace(identityConnection))

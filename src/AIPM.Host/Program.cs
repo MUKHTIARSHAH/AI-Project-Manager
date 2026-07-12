@@ -328,6 +328,8 @@ portfolio.MapGet(string.Empty, async (IMediator mediator, CancellationToken ct) 
     Results.Ok(await mediator.Send(new ListPortfoliosQuery(), ct)));
 portfolio.MapGet("/{portfolioId:guid}", async (IMediator mediator, Guid portfolioId, CancellationToken ct) =>
     Results.Ok(await mediator.Send(new GetPortfolioQuery(portfolioId), ct)));
+portfolio.MapGet("/{portfolioId:guid}/summary", async (IMediator mediator, Guid portfolioId, CancellationToken ct) =>
+    Results.Ok(await mediator.Send(new GetPortfolioSummaryQuery(portfolioId), ct)));
 portfolio.MapPost(string.Empty, async (IMediator mediator, CreatePortfolioCommand command, CancellationToken ct) =>
     Results.Ok(await mediator.Send(command, ct)));
 
@@ -336,6 +338,8 @@ programs.MapGet(string.Empty, async (IMediator mediator, CancellationToken ct) =
     Results.Ok(await mediator.Send(new ListProgramsQuery(), ct)));
 programs.MapGet("/{programId:guid}", async (IMediator mediator, Guid programId, CancellationToken ct) =>
     Results.Ok(await mediator.Send(new GetProgramQuery(programId), ct)));
+programs.MapGet("/{programId:guid}/summary", async (IMediator mediator, Guid programId, CancellationToken ct) =>
+    Results.Ok(await mediator.Send(new GetProgramSummaryQuery(programId), ct)));
 programs.MapPost(string.Empty, async (IMediator mediator, CreateProgramCommand command, CancellationToken ct) =>
     Results.Ok(await mediator.Send(command, ct)));
 
@@ -344,6 +348,8 @@ projects.MapGet(string.Empty, async (IMediator mediator, CancellationToken ct) =
     Results.Ok(await mediator.Send(new ListProjectsQuery(), ct)));
 projects.MapGet("/{projectId:guid}", async (IMediator mediator, Guid projectId, CancellationToken ct) =>
     Results.Ok(await mediator.Send(new GetProjectQuery(projectId), ct)));
+projects.MapGet("/{projectId:guid}/summary", async (IMediator mediator, Guid projectId, CancellationToken ct) =>
+    Results.Ok(await mediator.Send(new GetProjectSummaryQuery(projectId), ct)));
 projects.MapPost(string.Empty, async (IMediator mediator, CreateProjectCommand command, CancellationToken ct) =>
     Results.Ok(await mediator.Send(command, ct)));
 projects.MapPut("/{projectId:guid}", async (IMediator mediator, Guid projectId, UpdateProjectRequest request, CancellationToken ct) =>

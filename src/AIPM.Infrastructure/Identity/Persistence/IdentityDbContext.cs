@@ -128,6 +128,7 @@ public sealed class IdentityDbContext : DbContext
             entity.Property(x => x.Name).HasMaxLength(200).IsRequired();
             entity.Property(x => x.Status).HasMaxLength(32).IsRequired();
             entity.HasIndex(x => new { x.TenantId, x.Name }).IsUnique();
+            entity.HasIndex(x => new { x.TenantId, x.ProgramId, x.Status });
             entity.HasOne<TenantRecord>()
                 .WithMany()
                 .HasForeignKey(x => x.TenantId)

@@ -221,6 +221,8 @@ namespace AIPM.Infrastructure.Identity.Persistence.Migrations
                     b.HasIndex("TenantId", "Name")
                         .IsUnique();
 
+                    b.HasIndex("TenantId", "ProgramId", "Status");
+
                     b.ToTable("portfolio_projects", (string)null);
                 });
 
