@@ -164,4 +164,89 @@ public sealed class ProjectDomainTests
         var approveMissing = () => project.ApproveScopeChange(Guid.NewGuid());
         approveMissing.Should().Throw<NotFoundError>();
     }
+
+    [Fact]
+    public void Clone_FromDraft_CreatesNewDraft_WithoutMutatingSource()
+    {
+        var tenantId = Guid.NewGuid();
+        var programId = Guid.NewGuid();
+        var workspaceId = Guid.NewGuid();
+        var ownerId = Guid.NewGuid();
+        var source = ProjectAggregate.Create(tenantId, programId, workspaceId, ownerId, "Source");
+        source.RecordScopeChange("Title", "Desc", "REQ-1");
+        source.ClearDomainEvents();
+        var beforeCreatedAt = source.CreatedAt;
+
+        var clone = source.Clone("Cloned Project");
+
+        clone.Id.Should().NotBe(source.Id);
+        clone.TenantId.Should().Be(tenantId);
+        clone.ProgramId.Should().Be(programId);
+        clone.WorkspaceId.Should().Be(workspaceId);
+        clone.OwnerUserId.Should().Be(ownerId);
+        clone.Name.Should().Be("Cloned Project");
+        clone.Status.Should().Be(ProjectStatus.Draft);
+        clone.ArchivedAt.Should().BeNull();
+        clone.CreatedAt.Should().BeOnOrAfter(beforeCreatedAt);
+        clone.ScopeChanges.Should().BeEmpty();
+        clone.DomainEvents.Should().ContainSingle(x => x is ProjectClonedDomainEvent);
+        clone.DomainEvents.Should().NotContain(x => x is ProjectCreatedDomainEvent);
+
+        source.Name.Should().Be("Source");
+        source.ScopeChanges.Should().ContainSingle();
+        source.DomainEvents.Should().BeEmpty();
+    }
+
+    [Theory]
+    [InlineData(ProjectStatus.Draft)]
+    [InlineData(ProjectStatus.Active)]
+    [InlineData(ProjectStatus.OnHold)]
+    [InlineData(ProjectStatus.Completed)]
+    public void Clone_AllowsNonArchivedStatuses(ProjectStatus status)
+    {
+        var source = ProjectAggregate.Rehydrate(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "Eligible",
+            status,
+            DateTimeOffset.UtcNow.AddDays(-1),
+            null);
+
+        var clone = source.Clone($"Clone of {status}");
+
+        clone.Status.Should().Be(ProjectStatus.Draft);
+        clone.Id.Should().NotBe(source.Id);
+    }
+
+    [Fact]
+    public void Clone_Archived_Throws()
+    {
+        var source = ProjectAggregate.Create(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "Archived Source");
+        source.Archive();
+
+        var act = () => source.Clone("Should Fail");
+        act.Should().Throw<ValidationError>().WithMessage("*cannot be cloned*");
+    }
+
+    [Fact]
+    public void Clone_RequiresName()
+    {
+        var source = ProjectAggregate.Create(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "Named");
+
+        var act = () => source.Clone(" ");
+        act.Should().Throw<ValidationError>().WithMessage("*name*");
+    }
 }

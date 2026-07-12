@@ -350,6 +350,8 @@ projects.MapPut("/{projectId:guid}", async (IMediator mediator, Guid projectId, 
     Results.Ok(await mediator.Send(new UpdateProjectCommand(projectId, request.WorkspaceId, request.OwnerUserId, request.Name), ct)));
 projects.MapPost("/{projectId:guid}/archive", async (IMediator mediator, Guid projectId, CancellationToken ct) =>
     Results.Ok(await mediator.Send(new ArchiveProjectCommand(projectId), ct)));
+projects.MapPost("/{projectId:guid}/clone", async (IMediator mediator, Guid projectId, CloneProjectRequest request, CancellationToken ct) =>
+    Results.Ok(await mediator.Send(new CloneProjectCommand(projectId, request.Name), ct)));
 projects.MapGet("/{projectId:guid}/scope-changes", async (IMediator mediator, Guid projectId, CancellationToken ct) =>
     Results.Ok(await mediator.Send(new ListScopeChangesQuery(projectId), ct)));
 projects.MapGet("/{projectId:guid}/scope-changes/{scopeChangeId:guid}", async (IMediator mediator, Guid projectId, Guid scopeChangeId, CancellationToken ct) =>
@@ -426,6 +428,9 @@ public sealed record AssignPermissionRequest(string PermissionCode);
 
 /// <summary>Project update request body.</summary>
 public sealed record UpdateProjectRequest(Guid WorkspaceId, Guid OwnerUserId, string Name);
+
+/// <summary>Project clone request body (FR-005).</summary>
+public sealed record CloneProjectRequest(string Name);
 
 /// <summary>Scope change record request body (CMD-022).</summary>
 public sealed record RecordScopeChangeRequest(string Title, string Description, string? AffectedRequirementCitation);

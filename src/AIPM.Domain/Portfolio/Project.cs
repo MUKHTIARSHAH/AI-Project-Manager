@@ -5,7 +5,7 @@ namespace AIPM.Domain.Portfolio;
 
 /// <summary>
 /// AGG-004 Project aggregate.
-/// Trace: FR-001, FR-004, CAP-001, CAP-004, CON-008, CON-011, CMD-020, CMD-021, CMD-022, EVT-020, EVT-021, ADR-005, IDL-001.
+/// Trace: FR-001, FR-004, FR-005, CAP-001, CAP-004, CON-008, CON-011, CMD-020, CMD-021, CMD-022, EVT-020, EVT-021, ADR-005, IDL-001.
 /// Workspace is referenced only (CON-003 / ENT-002); ownership remains outside BC-01 create path.
 /// </summary>
 public sealed class ProjectAggregate : AggregateRoot
@@ -241,6 +241,47 @@ public sealed class ProjectAggregate : AggregateRoot
         return scopeChange;
     }
 
+    /// <summary>
+    /// FR-005 Project cloning for repeatable delivery patterns.
+    /// Catalog gap: Commands-Events-Catalog has no CMD-023 / EVT-023; treated as CloneProject / ProjectCloned.
+    /// Does not mutate this aggregate. ScopeChanges are not copied.
+    /// Trace: FR-005, CAP-001, CON-008, AGG-004, ADR-005, ADR-SAD-004.
+    /// </summary>
+    public ProjectAggregate Clone(string newName)
+    {
+        if (IsArchived)
+        {
+            throw new ValidationError("Archived projects cannot be cloned.");
+        }
+
+        if (string.IsNullOrWhiteSpace(newName))
+        {
+            throw new ValidationError("Project name is required.");
+        }
+
+        var clone = new ProjectAggregate(
+            Guid.NewGuid(),
+            TenantId,
+            ProgramId,
+            WorkspaceId,
+            OwnerUserId,
+            newName.Trim(),
+            ProjectStatus.Draft,
+            DateTimeOffset.UtcNow,
+            null);
+
+        clone.Raise(new ProjectClonedDomainEvent(
+            clone.Id,
+            Id,
+            clone.TenantId,
+            clone.ProgramId,
+            clone.WorkspaceId,
+            clone.OwnerUserId,
+            clone.Name));
+
+        return clone;
+    }
+
     /// <summary>Rehydrates from persistence.</summary>
     public static ProjectAggregate Rehydrate(
         Guid id,
@@ -370,6 +411,24 @@ public sealed record ScopeChangeImplementedDomainEvent(
     Guid ProjectId,
     Guid TenantId,
     string Title) : IDomainEvent
+{
+    /// <inheritdoc />
+    public DateTimeOffset OccurredAt { get; } = DateTimeOffset.UtcNow;
+}
+
+/// <summary>
+/// ProjectCloned domain event (FR-005).
+/// Catalog gap: Commands-Events-Catalog has no EVT-023 row; named for FR-005 / CAP-001 / CON-008.
+/// Trace: FR-005, CAP-001, CON-008, AGG-004, ADR-SAD-004.
+/// </summary>
+public sealed record ProjectClonedDomainEvent(
+    Guid ProjectId,
+    Guid SourceProjectId,
+    Guid TenantId,
+    Guid ProgramId,
+    Guid WorkspaceId,
+    Guid OwnerUserId,
+    string Name) : IDomainEvent
 {
     /// <inheritdoc />
     public DateTimeOffset OccurredAt { get; } = DateTimeOffset.UtcNow;
