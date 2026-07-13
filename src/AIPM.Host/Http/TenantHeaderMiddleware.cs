@@ -67,8 +67,9 @@ public sealed class TenantHeaderMiddleware
         var isPortfolioRoute = request.Path.StartsWithSegments("/api/v1/portfolio", StringComparison.OrdinalIgnoreCase)
             || request.Path.StartsWithSegments("/api/v1/programs", StringComparison.OrdinalIgnoreCase)
             || request.Path.StartsWithSegments("/api/v1/projects", StringComparison.OrdinalIgnoreCase);
+        var isRequirementsRoute = request.Path.StartsWithSegments("/api/v1/requirements", StringComparison.OrdinalIgnoreCase);
 
-        if (!isIdentityRoute && !isPortfolioRoute)
+        if (!isIdentityRoute && !isPortfolioRoute && !isRequirementsRoute)
         {
             return false;
         }

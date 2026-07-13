@@ -5,6 +5,8 @@ using AIPM.Application.Identity.Queries;
 using AIPM.Application.Platform;
 using AIPM.Application.Portfolio.Commands;
 using AIPM.Application.Portfolio.Queries;
+using AIPM.Application.Requirements.Commands;
+using AIPM.Application.Requirements.Queries;
 using AIPM.Application.Runtime;
 using AIPM.Application.Runtime.Agents;
 using AIPM.Application.Runtime.Contracts;
@@ -370,6 +372,21 @@ projects.MapPost("/{projectId:guid}/scope-changes/{scopeChangeId:guid}/reject", 
     Results.Ok(await mediator.Send(new RejectScopeChangeCommand(projectId, scopeChangeId), ct)));
 projects.MapPost("/{projectId:guid}/scope-changes/{scopeChangeId:guid}/implement", async (IMediator mediator, Guid projectId, Guid scopeChangeId, CancellationToken ct) =>
     Results.Ok(await mediator.Send(new ImplementScopeChangeCommand(projectId, scopeChangeId), ct)));
+projects.MapGet("/{projectId:guid}/requirements", async (IMediator mediator, Guid projectId, CancellationToken ct) =>
+    Results.Ok(await mediator.Send(new ListRequirementsQuery(projectId), ct)));
+projects.MapPost("/{projectId:guid}/requirements", async (IMediator mediator, Guid projectId, IntakeRequirementRequest request, CancellationToken ct) =>
+    Results.Ok(await mediator.Send(new IntakeRequirementCommand(
+        projectId,
+        request.Title,
+        request.Statement,
+        request.AcceptanceCriteria,
+        request.DocumentTitle,
+        request.DocumentContentType,
+        request.DocumentUriOrName), ct)));
+
+var requirements = apiV1.MapGroup("/requirements").RequireAuthorization("Bc10Admin");
+requirements.MapGet("/{requirementId:guid}", async (IMediator mediator, Guid requirementId, CancellationToken ct) =>
+    Results.Ok(await mediator.Send(new GetRequirementQuery(requirementId), ct)));
 
 using (var scope = app.Services.CreateScope())
 {
@@ -440,5 +457,14 @@ public sealed record CloneProjectRequest(string Name);
 
 /// <summary>Scope change record request body (CMD-022).</summary>
 public sealed record RecordScopeChangeRequest(string Title, string Description, string? AffectedRequirementCitation);
+
+/// <summary>Requirement intake request body (CMD-030).</summary>
+public sealed record IntakeRequirementRequest(
+    string Title,
+    string Statement,
+    IReadOnlyList<string>? AcceptanceCriteria,
+    string? DocumentTitle,
+    string? DocumentContentType,
+    string? DocumentUriOrName);
 
 

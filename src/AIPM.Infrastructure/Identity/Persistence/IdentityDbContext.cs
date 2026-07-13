@@ -1,5 +1,6 @@
 using AIPM.Infrastructure.Identity.Persistence.Models;
 using AIPM.Infrastructure.Portfolio.Persistence.Models;
+using AIPM.Infrastructure.Requirements.Persistence.Models;
 using Microsoft.EntityFrameworkCore;
 
 namespace AIPM.Infrastructure.Identity.Persistence;
@@ -32,6 +33,10 @@ public sealed class IdentityDbContext : DbContext
     public DbSet<ProjectRecord> Projects => Set<ProjectRecord>();
     /// <summary>Scope changes table (BC-01 CON-011 / CMD-022).</summary>
     public DbSet<ScopeChangeRecord> ScopeChanges => Set<ScopeChangeRecord>();
+    /// <summary>Requirements table (BC-02 AGG-005).</summary>
+    public DbSet<RequirementRecord> Requirements => Set<RequirementRecord>();
+    /// <summary>Acceptance criteria table (BC-02 CON-014).</summary>
+    public DbSet<AcceptanceCriterionRecord> AcceptanceCriteria => Set<AcceptanceCriterionRecord>();
 
     /// <inheritdoc />
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -157,6 +162,48 @@ public sealed class IdentityDbContext : DbContext
             entity.HasOne<ProjectRecord>()
                 .WithMany()
                 .HasForeignKey(x => x.ProjectId)
+                .OnDelete(DeleteBehavior.Cascade);
+        });
+
+        modelBuilder.Entity<RequirementRecord>(entity =>
+        {
+            entity.ToTable("requirements_requirements");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).ValueGeneratedNever();
+            entity.Property(x => x.Title).HasMaxLength(200).IsRequired();
+            entity.Property(x => x.Statement).HasMaxLength(8000).IsRequired();
+            entity.Property(x => x.Status).HasMaxLength(32).IsRequired();
+            entity.Property(x => x.DocumentTitle).HasMaxLength(200);
+            entity.Property(x => x.DocumentContentType).HasMaxLength(128);
+            entity.Property(x => x.DocumentUriOrName).HasMaxLength(2000);
+            entity.HasIndex(x => new { x.TenantId, x.Id }).IsUnique();
+            entity.HasIndex(x => new { x.TenantId, x.ProjectId });
+            entity.HasIndex(x => new { x.TenantId, x.ProjectId, x.Status });
+            entity.HasOne<TenantRecord>()
+                .WithMany()
+                .HasForeignKey(x => x.TenantId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<ProjectRecord>()
+                .WithMany()
+                .HasForeignKey(x => x.ProjectId)
+                .OnDelete(DeleteBehavior.Restrict);
+        });
+
+        modelBuilder.Entity<AcceptanceCriterionRecord>(entity =>
+        {
+            entity.ToTable("requirements_acceptance_criteria");
+            entity.HasKey(x => x.Id);
+            entity.Property(x => x.Id).ValueGeneratedNever();
+            entity.Property(x => x.Statement).HasMaxLength(4000).IsRequired();
+            entity.HasIndex(x => x.TenantId);
+            entity.HasIndex(x => new { x.TenantId, x.RequirementId });
+            entity.HasOne<TenantRecord>()
+                .WithMany()
+                .HasForeignKey(x => x.TenantId)
+                .OnDelete(DeleteBehavior.Restrict);
+            entity.HasOne<RequirementRecord>()
+                .WithMany()
+                .HasForeignKey(x => x.RequirementId)
                 .OnDelete(DeleteBehavior.Cascade);
         });
     }

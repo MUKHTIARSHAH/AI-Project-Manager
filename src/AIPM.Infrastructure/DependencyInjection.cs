@@ -1,5 +1,6 @@
 using AIPM.Application.Identity;
 using AIPM.Application.Portfolio;
+using AIPM.Application.Requirements;
 using AIPM.Application.Runtime.Events;
 using AIPM.Application.Runtime.Resilience;
 using AIPM.Application.Runtime.Workers;
@@ -16,6 +17,8 @@ using AIPM.Infrastructure.Messaging.Health;
 using AIPM.Infrastructure.Messaging.Idempotency;
 using AIPM.Infrastructure.Portfolio;
 using AIPM.Infrastructure.Portfolio.Repositories;
+using AIPM.Infrastructure.Requirements;
+using AIPM.Infrastructure.Requirements.Repositories;
 using AIPM.Infrastructure.Resilience;
 using AIPM.Infrastructure.Workers;
 using AIPM.SharedKernel.Execution;
@@ -87,12 +90,14 @@ public static class DependencyInjection
         services.AddScoped<IMessageBus, MassTransitMessageBus>();
         services.AddScoped<IIdentityEventPublisher, IdentityEventPublisher>();
         services.AddScoped<IPortfolioEventPublisher, PortfolioEventPublisher>();
+        services.AddScoped<IRequirementsEventPublisher, RequirementsEventPublisher>();
         services.AddScoped<ITenantRepository, TenantRepository>();
         services.AddScoped<IUserRepository, UserRepository>();
         services.AddScoped<IRoleRepository, RoleRepository>();
         services.AddScoped<IPortfolioRepository, PortfolioRepository>();
         services.AddScoped<IProgramRepository, ProgramRepository>();
         services.AddScoped<IProjectRepository, ProjectRepository>();
+        services.AddScoped<IRequirementRepository, RequirementRepository>();
         services.AddScoped<IPortfolioProjectionReadRepository, PortfolioProjectionReadRepository>();
 
         var identityConnection = configuration.GetConnectionString("IdentityDb");

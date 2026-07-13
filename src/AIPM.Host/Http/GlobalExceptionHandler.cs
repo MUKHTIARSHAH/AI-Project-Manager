@@ -69,6 +69,8 @@ public sealed class GlobalExceptionHandler : IExceptionHandler
         return exception switch
         {
             ValidationError e => (StatusCodes.Status400BadRequest, "validation-error", "Validation Error", e.Message),
+            JsonException e => (StatusCodes.Status400BadRequest, "malformed-request", "Malformed Request", e.Message),
+            BadHttpRequestException e => (StatusCodes.Status400BadRequest, "malformed-request", "Malformed Request", e.Message),
             NotFoundError e => (StatusCodes.Status404NotFound, "not-found", "Not Found", e.Message),
             ConflictError e => (StatusCodes.Status409Conflict, "conflict", "Conflict", e.Message),
             UnauthorizedError e => (StatusCodes.Status401Unauthorized, "unauthorized", "Unauthorized", e.Message),
