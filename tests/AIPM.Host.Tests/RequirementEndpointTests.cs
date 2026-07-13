@@ -2,7 +2,11 @@ using System.Net;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
+using AIPM.Domain.Requirements;
+using AIPM.Infrastructure.Identity.Persistence;
 using FluentAssertions;
+using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.DependencyInjection;
 
 namespace AIPM.Host.Tests;
 
@@ -75,6 +79,222 @@ public sealed class RequirementEndpointTests
         var got = await getResponse.Content.ReadFromJsonAsync<RequirementResponse>();
         got!.parsed.Should().BeTrue();
         got.status.Should().Be("Draft");
+    }
+
+    [Fact]
+    public async Task Can_Approve_Requirement_WhenParsed()
+    {
+        await using var factory = new HostTestWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        var tenantId = await ProvisionTenantAsync(client, "ReqApproveTenant");
+        var ownerId = await CreateUserAsync(client, tenantId, "owner-approve@req.test");
+        var programId = await CreateProgramHierarchyAsync(client, tenantId, "Portfolio Approve", "Program Approve");
+        var projectId = await CreateProjectAsync(client, tenantId, programId, ownerId, "Approve Project");
+
+        var requirementId = await IntakeRequirementAsync(client, tenantId, projectId, "Approve me");
+
+        using var approve = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/requirements/{requirementId}/approve");
+        approve.Headers.Add("X-Api-Key", _apiKey);
+        approve.Headers.Add("X-Tenant-Id", tenantId.ToString());
+
+        var response = await client.SendAsync(approve);
+        response.EnsureSuccessStatusCode();
+
+        var approved = await response.Content.ReadFromJsonAsync<RequirementResponse>();
+        approved.Should().NotBeNull();
+        approved!.status.Should().Be("Approved");
+        approved.parsed.Should().BeTrue();
+
+        using var get = new HttpRequestMessage(HttpMethod.Get, $"/api/v1/requirements/{requirementId}");
+        get.Headers.Add("X-Api-Key", _apiKey);
+        get.Headers.Add("X-Tenant-Id", tenantId.ToString());
+        var getResponse = await client.SendAsync(get);
+        getResponse.EnsureSuccessStatusCode();
+        var got = await getResponse.Content.ReadFromJsonAsync<RequirementResponse>();
+        got!.status.Should().Be("Approved");
+    }
+
+    [Fact]
+    public async Task ApproveRequirement_BlocksArchivedProject()
+    {
+        await using var factory = new HostTestWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        var tenantId = await ProvisionTenantAsync(client, "ReqApproveArchiveTenant");
+        var ownerId = await CreateUserAsync(client, tenantId, "owner-approve-archived@req.test");
+        var programId = await CreateProgramHierarchyAsync(client, tenantId, "Portfolio Archived", "Program Archived");
+        var projectId = await CreateProjectAsync(client, tenantId, programId, ownerId, "Archived Approve Project");
+
+        var requirementId = await IntakeRequirementAsync(client, tenantId, projectId, "Approve archived");
+
+        using var archive = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/projects/{projectId}/archive");
+        archive.Headers.Add("X-Api-Key", _apiKey);
+        archive.Headers.Add("X-Tenant-Id", tenantId.ToString());
+        (await client.SendAsync(archive)).EnsureSuccessStatusCode();
+
+        using var approve = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/requirements/{requirementId}/approve");
+        approve.Headers.Add("X-Api-Key", _apiKey);
+        approve.Headers.Add("X-Tenant-Id", tenantId.ToString());
+
+        var response = await client.SendAsync(approve);
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+    }
+
+    [Fact]
+    public async Task ApproveRequirement_IsTenantScoped()
+    {
+        await using var factory = new HostTestWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        var tenantA = await ProvisionTenantAsync(client, "ReqApproveTenantA");
+        var tenantB = await ProvisionTenantAsync(client, "ReqApproveTenantB");
+        var ownerA = await CreateUserAsync(client, tenantA, "owner-a-approve@req.test");
+        var programA = await CreateProgramHierarchyAsync(client, tenantA, "Portfolio A", "Program A");
+        var projectA = await CreateProjectAsync(client, tenantA, programA, ownerA, "Project A");
+
+        var requirementId = await IntakeRequirementAsync(client, tenantA, projectA, "Tenant scoped approve");
+
+        using var approve = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/requirements/{requirementId}/approve");
+        approve.Headers.Add("X-Api-Key", _apiKey);
+        approve.Headers.Add("X-Tenant-Id", tenantB.ToString());
+
+        var response = await client.SendAsync(approve);
+        response.StatusCode.Should().Be(HttpStatusCode.NotFound);
+    }
+
+    [Fact]
+    public async Task ApproveRequirement_ReturnsProblemDetails_WhenAlreadyApproved()
+    {
+        await using var factory = new HostTestWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        var tenantId = await ProvisionTenantAsync(client, "ReqAlreadyApprovedTenant");
+        var ownerId = await CreateUserAsync(client, tenantId, "owner-already-approved@req.test");
+        var programId = await CreateProgramHierarchyAsync(client, tenantId, "Portfolio Already Approved", "Program Already Approved");
+        var projectId = await CreateProjectAsync(client, tenantId, programId, ownerId, "Already Approved Project");
+        var requirementId = await IntakeRequirementAsync(client, tenantId, projectId, "Already approved");
+
+        using var approveOnce = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/requirements/{requirementId}/approve");
+        approveOnce.Headers.Add("X-Api-Key", _apiKey);
+        approveOnce.Headers.Add("X-Tenant-Id", tenantId.ToString());
+        (await client.SendAsync(approveOnce)).EnsureSuccessStatusCode();
+
+        using var approveAgain = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/requirements/{requirementId}/approve");
+        approveAgain.Headers.Add("X-Api-Key", _apiKey);
+        approveAgain.Headers.Add("X-Tenant-Id", tenantId.ToString());
+
+        var response = await client.SendAsync(approveAgain);
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var problem = await ReadProblemDetailsAsync(response);
+        problem.GetProperty("type").GetString().Should().Contain("validation-error");
+        problem.GetProperty("detail").GetString().Should().Contain("already approved");
+    }
+
+    [Fact]
+    public async Task ApproveRequirement_ReturnsProblemDetails_WhenSuperseded()
+    {
+        await using var factory = new HostTestWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        var tenantId = await ProvisionTenantAsync(client, "ReqSupersededTenant");
+        var ownerId = await CreateUserAsync(client, tenantId, "owner-superseded@req.test");
+        var programId = await CreateProgramHierarchyAsync(client, tenantId, "Portfolio Superseded", "Program Superseded");
+        var projectId = await CreateProjectAsync(client, tenantId, programId, ownerId, "Superseded Project");
+        var requirementId = await IntakeRequirementAsync(client, tenantId, projectId, "Superseded requirement");
+
+        await SetRequirementStatusAsync(factory, tenantId, requirementId, nameof(RequirementStatus.Superseded));
+
+        using var approve = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/requirements/{requirementId}/approve");
+        approve.Headers.Add("X-Api-Key", _apiKey);
+        approve.Headers.Add("X-Tenant-Id", tenantId.ToString());
+
+        var response = await client.SendAsync(approve);
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var problem = await ReadProblemDetailsAsync(response);
+        problem.GetProperty("type").GetString().Should().Contain("validation-error");
+        problem.GetProperty("detail").GetString().Should().Contain("superseded");
+    }
+
+    [Fact]
+    public async Task ApproveRequirement_ReturnsProblemDetails_WhenRetired()
+    {
+        await using var factory = new HostTestWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        var tenantId = await ProvisionTenantAsync(client, "ReqRetiredTenant");
+        var ownerId = await CreateUserAsync(client, tenantId, "owner-retired@req.test");
+        var programId = await CreateProgramHierarchyAsync(client, tenantId, "Portfolio Retired", "Program Retired");
+        var projectId = await CreateProjectAsync(client, tenantId, programId, ownerId, "Retired Project");
+        var requirementId = await IntakeRequirementAsync(client, tenantId, projectId, "Retired requirement");
+
+        await SetRequirementStatusAsync(factory, tenantId, requirementId, nameof(RequirementStatus.Retired));
+
+        using var approve = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/requirements/{requirementId}/approve");
+        approve.Headers.Add("X-Api-Key", _apiKey);
+        approve.Headers.Add("X-Tenant-Id", tenantId.ToString());
+
+        var response = await client.SendAsync(approve);
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var problem = await ReadProblemDetailsAsync(response);
+        problem.GetProperty("type").GetString().Should().Contain("validation-error");
+        problem.GetProperty("detail").GetString().Should().Contain("retired");
+    }
+
+    [Fact]
+    public async Task ApproveRequirement_ReturnsProblemDetails_WhenNoApiKey()
+    {
+        await using var factory = new HostTestWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        var tenantId = await ProvisionTenantAsync(client, "ReqApproveNoAuthTenant");
+        var ownerId = await CreateUserAsync(client, tenantId, "owner-noauth@req.test");
+        var programId = await CreateProgramHierarchyAsync(client, tenantId, "Portfolio NoAuth", "Program NoAuth");
+        var projectId = await CreateProjectAsync(client, tenantId, programId, ownerId, "NoAuth Project");
+
+        var requirementId = await IntakeRequirementAsync(client, tenantId, projectId, "No auth approve");
+
+        using var approve = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/requirements/{requirementId}/approve");
+        approve.Headers.Add("X-Tenant-Id", tenantId.ToString());
+
+        var response = await client.SendAsync(approve);
+        response.StatusCode.Should().Be(HttpStatusCode.Unauthorized);
+    }
+
+    [Fact]
+    public async Task ApproveRequirement_ReturnsProblemDetails_ForMissingTenantHeader()
+    {
+        await using var factory = new HostTestWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        using var approve = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/requirements/{Guid.NewGuid()}/approve");
+        approve.Headers.Add("X-Api-Key", _apiKey);
+
+        var response = await client.SendAsync(approve);
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var problem = await ReadProblemDetailsAsync(response);
+        problem.GetProperty("type").GetString().Should().Contain("validation-error");
+    }
+
+    [Fact]
+    public async Task ApproveRequirement_ReturnsProblemDetails_ForMalformedTenantHeader()
+    {
+        await using var factory = new HostTestWebApplicationFactory();
+        using var client = factory.CreateClient();
+
+        using var approve = new HttpRequestMessage(HttpMethod.Post, $"/api/v1/requirements/{Guid.NewGuid()}/approve");
+        approve.Headers.Add("X-Api-Key", _apiKey);
+        approve.Headers.Add("X-Tenant-Id", "not-a-guid");
+
+        var response = await client.SendAsync(approve);
+        response.StatusCode.Should().Be(HttpStatusCode.BadRequest);
+
+        var problem = await ReadProblemDetailsAsync(response);
+        problem.GetProperty("status").GetInt32().Should().Be((int)HttpStatusCode.BadRequest);
     }
 
     [Fact]
@@ -365,6 +585,15 @@ public sealed class RequirementEndpointTests
         response.EnsureSuccessStatusCode();
         var created = await response.Content.ReadFromJsonAsync<RequirementResponse>();
         return created!.id;
+    }
+
+    private static async Task SetRequirementStatusAsync(HostTestWebApplicationFactory factory, Guid tenantId, Guid requirementId, string status)
+    {
+        using var scope = factory.Services.CreateScope();
+        var dbContext = scope.ServiceProvider.GetRequiredService<IdentityDbContext>();
+        var requirement = await dbContext.Requirements.FirstAsync(x => x.TenantId == tenantId && x.Id == requirementId);
+        requirement.Status = status;
+        await dbContext.SaveChangesAsync();
     }
 
     private sealed record TenantResponse(Guid id, string name, string status);

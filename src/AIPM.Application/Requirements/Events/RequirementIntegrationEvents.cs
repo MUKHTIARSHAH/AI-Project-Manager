@@ -40,3 +40,22 @@ public sealed record RequirementIntakenIntegrationEvent
     /// <summary>Technical Parsed flag (independent of status).</summary>
     public bool Parsed { get; init; }
 }
+
+/// <summary>
+/// EVT-031 RequirementApproved integration contract.
+/// Trace: CMD-031, AGG-005, EVT-031, ADR-SAD-004, ADR-005.
+/// </summary>
+public sealed record RequirementApprovedIntegrationEvent
+{
+    public Guid MessageId { get; init; } = Guid.NewGuid();
+    public string ContractVersion { get; init; } = "1.0";
+    public Guid CorrelationId { get; init; } = Guid.NewGuid();
+    public Guid CausationId { get; init; } = Guid.NewGuid();
+    public DateTimeOffset OccurredAt { get; init; } = DateTimeOffset.UtcNow;
+    public Guid RequirementId { get; init; }
+    public Guid TenantId { get; init; }
+    public Guid ProjectId { get; init; }
+    public string Title { get; init; } = string.Empty;
+    public string Status { get; init; } = string.Empty;
+    public bool Parsed { get; init; }
+}

@@ -58,6 +58,28 @@ public sealed class RequirementRepositoryIntegrationTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task RequirementRepository_UpdateAsync_PersistsStatusChange()
+    {
+        var seed = await SeedProjectAsync("Acme Update");
+        var repository = new RequirementRepository(_dbContext);
+        var requirement = RequirementAggregate.Intake(seed.TenantId, seed.ProjectId, "Billing", "Invoice generation must support monthly cycles.");
+
+        await repository.AddAsync(requirement);
+        await repository.SaveChangesAsync();
+
+        var loaded = await repository.FindAsync(seed.TenantId, requirement.Id);
+        var approved = loaded!.Approve();
+
+        await repository.UpdateAsync(approved);
+        await repository.SaveChangesAsync();
+
+        var reloaded = await repository.FindAsync(seed.TenantId, requirement.Id);
+        reloaded.Should().NotBeNull();
+        reloaded!.Status.Should().Be(RequirementStatus.Approved);
+        reloaded.Parsed.Should().BeTrue();
+    }
+
+    [Fact]
     public async Task RequirementRepository_ListByProjectAsync_FiltersByTenantAndProject()
     {
         var tenantA = await SeedProjectAsync("Tenant-A");

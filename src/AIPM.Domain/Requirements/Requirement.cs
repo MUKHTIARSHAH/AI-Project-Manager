@@ -155,6 +155,59 @@ public sealed class RequirementAggregate : AggregateRoot
         return aggregate;
     }
 
+    /// <summary>
+    /// Approves the requirement.
+    /// </summary>
+    public RequirementAggregate Approve()
+    {
+        if (!Parsed)
+        {
+            throw new ValidationError("Requirement must be parsed before approval.");
+        }
+
+        if (Status == RequirementStatus.Approved)
+        {
+            throw new ValidationError("Requirement is already approved.");
+        }
+
+        if (Status == RequirementStatus.Superseded)
+        {
+            throw new ValidationError("Cannot approve a superseded requirement.");
+        }
+
+        if (Status == RequirementStatus.Retired)
+        {
+            throw new ValidationError("Cannot approve a retired requirement.");
+        }
+
+        if (Status != RequirementStatus.Draft && Status != RequirementStatus.UnderReview)
+        {
+            throw new ValidationError($"Requirement cannot be approved from status '{Status}'.");
+        }
+
+        var approved = new RequirementAggregate(
+            Id,
+            TenantId,
+            ProjectId,
+            Title,
+            Statement,
+            RequirementStatus.Approved,
+            Parsed,
+            DocumentMetadata,
+            CreatedAt,
+            _acceptanceCriteria);
+
+        approved.Raise(new RequirementApprovedDomainEvent(
+            approved.Id,
+            approved.TenantId,
+            approved.ProjectId,
+            approved.Title,
+            approved.Status.ToString(),
+            approved.Parsed));
+
+        return approved;
+    }
+
     /// <summary>Rehydrates from persistence.</summary>
     public static RequirementAggregate Rehydrate(
         Guid id,
@@ -209,6 +262,22 @@ public enum RequirementStatus
 /// Trace: CMD-030, FR-010, FR-011, AGG-005, ADR-SAD-004.
 /// </summary>
 public sealed record RequirementIntakenDomainEvent(
+    Guid RequirementId,
+    Guid TenantId,
+    Guid ProjectId,
+    string Title,
+    string Status,
+    bool Parsed) : IDomainEvent
+{
+    /// <inheritdoc />
+    public DateTimeOffset OccurredAt { get; } = DateTimeOffset.UtcNow;
+}
+
+/// <summary>
+/// EVT-031 RequirementApproved domain event.
+/// Trace: CMD-031, AGG-005, CAP-006, CON-013, ADR-SAD-004.
+/// </summary>
+public sealed record RequirementApprovedDomainEvent(
     Guid RequirementId,
     Guid TenantId,
     Guid ProjectId,

@@ -38,6 +38,124 @@ public sealed class RequirementDomainTests
     }
 
     [Fact]
+    public void Approve_TransitionsDraftToApproved_AndRaisesApprovedEvent()
+    {
+        var requirement = RequirementAggregate.Intake(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "Title",
+            "Statement body");
+
+        var approved = requirement.Approve();
+
+        approved.Status.Should().Be(RequirementStatus.Approved);
+        approved.Parsed.Should().BeTrue();
+        approved.DomainEvents.Should().ContainSingle(x => x is RequirementApprovedDomainEvent);
+        var domainEvent = approved.DomainEvents.OfType<RequirementApprovedDomainEvent>().Single();
+        domainEvent.Status.Should().Be(nameof(RequirementStatus.Approved));
+        domainEvent.Parsed.Should().BeTrue();
+    }
+
+    [Fact]
+    public void Approve_TransitionsUnderReviewToApproved_AndRaisesApprovedEvent()
+    {
+        var requirement = RequirementAggregate.Rehydrate(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "Title",
+            "Statement body",
+            RequirementStatus.UnderReview,
+            parsed: true,
+            documentMetadata: null,
+            DateTimeOffset.UtcNow);
+
+        var approved = requirement.Approve();
+
+        approved.Status.Should().Be(RequirementStatus.Approved);
+        approved.Parsed.Should().BeTrue();
+        approved.DomainEvents.Should().ContainSingle(x => x is RequirementApprovedDomainEvent);
+        var domainEvent = approved.DomainEvents.OfType<RequirementApprovedDomainEvent>().Single();
+        domainEvent.Status.Should().Be(nameof(RequirementStatus.Approved));
+    }
+
+    [Fact]
+    public void Approve_Throws_WhenRequirementAlreadyApproved()
+    {
+        var requirement = RequirementAggregate.Rehydrate(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "Title",
+            "Statement body",
+            RequirementStatus.Approved,
+            parsed: true,
+            documentMetadata: null,
+            DateTimeOffset.UtcNow);
+
+        var act = () => requirement.Approve();
+
+        act.Should().Throw<ValidationError>().WithMessage("*already approved*");
+    }
+
+    [Fact]
+    public void Approve_Throws_WhenRequirementSuperseded()
+    {
+        var requirement = RequirementAggregate.Rehydrate(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "Title",
+            "Statement body",
+            RequirementStatus.Superseded,
+            parsed: true,
+            documentMetadata: null,
+            DateTimeOffset.UtcNow);
+
+        var act = () => requirement.Approve();
+
+        act.Should().Throw<ValidationError>().WithMessage("*superseded*");
+    }
+
+    [Fact]
+    public void Approve_Throws_WhenRequirementRetired()
+    {
+        var requirement = RequirementAggregate.Rehydrate(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "Title",
+            "Statement body",
+            RequirementStatus.Retired,
+            parsed: true,
+            documentMetadata: null,
+            DateTimeOffset.UtcNow);
+
+        var act = () => requirement.Approve();
+
+        act.Should().Throw<ValidationError>().WithMessage("*retired*");
+    }
+
+    [Fact]
+    public void Approve_Throws_WhenRequirementNotParsed()
+    {
+        var requirement = RequirementAggregate.Rehydrate(
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            Guid.NewGuid(),
+            "Title",
+            "Statement body",
+            RequirementStatus.Draft,
+            parsed: false,
+            documentMetadata: null,
+            DateTimeOffset.UtcNow);
+
+        var act = () => requirement.Approve();
+
+        act.Should().Throw<ValidationError>().WithMessage("*parsed*");
+    }
+
+    [Fact]
     public void Intake_AcceptsOptionalAcceptanceCriteriaAndDocumentMetadata()
     {
         var metadata = DocumentMetadata.CreateOptional("Spec.pdf", "application/pdf", "docs/spec.pdf");

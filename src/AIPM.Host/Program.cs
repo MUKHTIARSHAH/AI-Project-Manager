@@ -387,6 +387,8 @@ projects.MapPost("/{projectId:guid}/requirements", async (IMediator mediator, Gu
 var requirements = apiV1.MapGroup("/requirements").RequireAuthorization("Bc10Admin");
 requirements.MapGet("/{requirementId:guid}", async (IMediator mediator, Guid requirementId, CancellationToken ct) =>
     Results.Ok(await mediator.Send(new GetRequirementQuery(requirementId), ct)));
+requirements.MapPost("/{requirementId:guid}/approve", async (IMediator mediator, Guid requirementId, CancellationToken ct) =>
+    Results.Ok(await mediator.Send(new ApproveRequirementCommand(requirementId), ct)));
 
 using (var scope = app.Services.CreateScope())
 {
